@@ -41,7 +41,7 @@ public:
 		Aws::Http::URI contact_node;
 		{
 			std::lock_guard<std::mutex> guard(_nodes_mutex);
-			EnsureNodesAvailable();
+			assert(!_nodes.empty());
 			contact_node = _nodes.front();
 		}
 		std::shared_ptr<Aws::Http::HttpRequest> request(new Aws::Http::Standard::StandardHttpRequest(contact_node, Aws::Http::HttpMethod::HTTP_GET));
@@ -69,7 +69,7 @@ public:
 
 	Aws::Http::URI NextNode() const {
 		std::lock_guard<std::mutex> guard(_nodes_mutex);
-		EnsureNodesAvailable();
+		assert(!_nodes.empty());
 		size_t idx = _node_idx;
 		_node_idx = (_node_idx + 1) % _nodes.size();
 		return _nodes[idx];
@@ -88,13 +88,5 @@ public:
 				}
 			}
 		}));
-	}
-
-protected:
-	void EnsureNodesAvailable() const {
-		if (_nodes.empty()) {
-			throw std::runtime_error("No alternator nodes are available. Please verify that "
-					"the initial endpoint works correctly and returns a list of online nodes.");
-		}
 	}
 };

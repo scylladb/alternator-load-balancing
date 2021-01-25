@@ -12,6 +12,7 @@ protected:
 	mutable std::vector<Aws::Http::URI> _nodes;
 	mutable std::mutex _nodes_mutex;
 	mutable size_t _node_idx = 0;
+	mutable size_t _updater_idx = 0;
 	std::unique_ptr<std::thread> _node_updater;
 	std::atomic<bool> _keep_updating;
 public:
@@ -39,14 +40,13 @@ public:
 	}
 
 	void FetchLocalNodes() {
-		Aws::Http::URI contact_node;
+		Aws::Http::URI uri;
 		{
 			std::lock_guard<std::mutex> guard(_nodes_mutex);
 			assert(!_nodes.empty());
-			contact_node = RandomNode();
-			contact_node.SetPath(contact_node.GetPath() + "/localnodes");
+			uri = GetURIForUpdates();
 		}
-		std::shared_ptr<Aws::Http::HttpRequest> request(new Aws::Http::Standard::StandardHttpRequest(contact_node, Aws::Http::HttpMethod::HTTP_GET));
+		std::shared_ptr<Aws::Http::HttpRequest> request(new Aws::Http::Standard::StandardHttpRequest(uri, Aws::Http::HttpMethod::HTTP_GET));
 		request->SetResponseStreamFactory([] { return new std::stringstream; });
 		std::shared_ptr<Aws::Http::HttpResponse> response = MakeHttpRequest(request);
 		Aws::Utils::Json::JsonValue json_raw = response->GetResponseBody();
@@ -95,13 +95,14 @@ public:
 	}
 
 protected:
-	// RandomNode() assumes that no concurrent updates to _nodes are performed.
+	// GetURIForUpdates() assumes that no concurrent updates to _nodes are performed.
 	// _nodes should be locked with _nodes_mutex prior to calling this function.
-	Aws::Http::URI RandomNode() const {
+	Aws::Http::URI GetURIForUpdates() const {
 		assert(!_nodes_mutex.try_lock());
-		static std::random_device rd;
-		static std::mt19937 gen(rd());
-		std::uniform_int_distribution<> dist(0, _nodes.size() - 1);
-		return _nodes[dist(gen)];
+		size_t idx = _updater_idx;
+		_updater_idx = (_updater_idx + 1) % _nodes.size();
+		Aws::Http::URI ret = _nodes[idx];
+		ret.SetPath(ret.GetPath() + "/localnodes");
+		return ret;
 	}
 };

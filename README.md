@@ -66,11 +66,11 @@ have it load an additional library, or initialize the existing library a bit
 differently; From there on, the usual unmodified AWS SDK functions will
 automatically use all of Alternator's nodes instead of just one.
 
-We currently provide libraries to do exactly that in four programming
-languages: [go](go), [java](java), [javascript](javascript) (node.js), and
-[python](python). Each of these directories includes a README file
-explaining how to use this library in an application. These libraries are not
-complete DynamoDB drivers - the application continues to use Amazon's
+We currently provide libraries to do exactly that in five programming
+languages: [go](go), [java](java), [javascript](javascript) (node.js),
+[python](python) and [C++](cpp). Each of these directories includes a README
+file explaining how to use this library in an application. These libraries are
+not complete DynamoDB drivers - the application continues to use Amazon's
 SDKs (e.g., boto3 in Python). Rather, what our libraries do is to
 automatically retrieve the list of nodes in an Alternator cluster, and
 configure or trick the Amazon SDK into sending requests to many different

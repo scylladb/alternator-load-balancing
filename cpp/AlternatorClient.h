@@ -3,6 +3,7 @@
 #include <aws/core/http/standard/StandardHttpRequest.h>
 #include <aws/dynamodb/model/DescribeEndpointsRequest.h>
 #include <mutex>
+#include <random>
 
 class AlternatorClient : public Aws::DynamoDB::DynamoDBClient {
 protected:
@@ -19,7 +20,7 @@ public:
 		: Aws::DynamoDB::DynamoDBClient(clientConfiguration)
 		, _protocol(protocol)
 		, _port(port) {
-			Aws::Http::URI initial_node(protocol + "://" + control_addr + ":" + port + "/localnodes");
+			Aws::Http::URI initial_node(protocol + "://" + control_addr + ":" + port);
 			_nodes.push_back(std::move(initial_node));
 			FetchLocalNodes();
 		}
@@ -42,7 +43,8 @@ public:
 		{
 			std::lock_guard<std::mutex> guard(_nodes_mutex);
 			assert(!_nodes.empty());
-			contact_node = _nodes.front();
+			contact_node = RandomNode();
+			contact_node.SetPath(contact_node.GetPath() + "/localnodes");
 		}
 		std::shared_ptr<Aws::Http::HttpRequest> request(new Aws::Http::Standard::StandardHttpRequest(contact_node, Aws::Http::HttpMethod::HTTP_GET));
 		request->SetResponseStreamFactory([] { return new std::stringstream; });
@@ -64,6 +66,8 @@ public:
 				_nodes = std::move(nodes);
 				_node_idx = 0;
 			}
+		} else {
+			throw std::runtime_error("Failed to fetch the list of live nodes");
 		}
 	}
 
@@ -88,5 +92,16 @@ public:
 				}
 			}
 		}));
+	}
+
+protected:
+	// RandomNode() assumes that no concurrent updates to _nodes are performed.
+	// _nodes should be locked with _nodes_mutex prior to calling this function.
+	Aws::Http::URI RandomNode() const {
+		assert(!_nodes_mutex.try_lock());
+		static std::random_device rd;
+		static std::mt19937 gen(rd());
+		std::uniform_int_distribution<> dist(0, _nodes.size() - 1);
+		return _nodes[dist(gen)];
 	}
 };

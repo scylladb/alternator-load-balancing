@@ -11,7 +11,7 @@ All code in this repository is open source, licensed under the
 **[Scylla](https://github.com/scylladb/scylla)** is an open-source distributed
 database.  **[Alternator](https://docs.scylladb.com/using-scylla/alternator/)**
 is a Scylla feature which adds Amazon DynamoDB&trade; compatibility to
-Scylla. With Alternator, Scylla is fully (or [almost fully](https://github.com/scylladb/scylla/blob/master/docs/alternator/alternator.md#current-compatibility-with-dynamodb))
+Scylla. With Alternator, Scylla is fully (or [almost fully](https://github.com/scylladb/scylla/blob/master/docs/alternator/compatibility.md))
 compatible with DynamoDB's HTTP and JSON based API. Unmodified applications
 written with any of Amazon's [SDK libraries](https://aws.amazon.com/tools/)
 can connect to a Scylla Alternator cluster instead of to Amazon's DynamoDB.
@@ -35,6 +35,10 @@ Alternator's nodes, not just to one. The mechanisms we are looking for should
 equally load all of Alternator's nodes (_load balancing_) and ensure that the
 service continues normally even if some of these nodes go down (_high
 availability_).
+
+In our blog post [Load Balancing in Scylla Alternator](https://www.scylladb.com/2021/04/13/load-balancing-in-scylla-alternator/)
+we explained in more detail the need for load balancing in Alternator and the
+various server-side and client-side options that are available.
 
 The goal of this repository is to offer Alternator users with such
 load balancing mechanisms, in the form of code examples, libraries,

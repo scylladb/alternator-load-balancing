@@ -36,6 +36,10 @@ equally load all of Alternator's nodes (_load balancing_) and ensure that the
 service continues normally even if some of these nodes go down (_high
 availability_).
 
+In our blog post [Load Balancing in Scylla Alternator](https://www.scylladb.com/2021/04/13/load-balancing-in-scylla-alternator/)
+we explained in more detail the need for load balancing in Alternator and the
+various server-side and client-side options that are available.
+
 The goal of this repository is to offer Alternator users with such
 load balancing mechanisms, in the form of code examples, libraries,
 and documentation.

@@ -52,6 +52,12 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>apache-client</artifactId>
         </dependency>
+        <dependency>
+			<groupId>net.sourceforge.argparse4j</groupId>
+			<artifactId>argparse4j</artifactId>
+			<version>0.8.1</version>
+			<scope>test</scope>
+		</dependency>        
         <!-- TODO: test also dynamodb-enhanced for v2: https://aws.amazon.com/blogs/developer/introducing-enhanced-dynamodb-client-in-the-aws-sdk-for-java-v2/ -->
     </dependencies>
 </project>

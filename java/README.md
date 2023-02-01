@@ -161,6 +161,34 @@ After building with `mvn package`, you can run this demo with the command:
 mvn exec:java -Dexec.mainClass=com.scylladb.alternator.test.Demo2 -Dexec.classpathScope=test
 ```
 
+### Asyncronous operation in SDK v2
+
+When using SDK v2, you can achieve better scalability and performance using the asynchronous
+versions of API calls and `java.util.concurrent` completion chaining. 
+To create a `DynamoDbAsyncClient` using alternator load balancing, the code would look something like:
+
+```java
+import com.scylladb.alternator.AlternatorAsyncHttpClient;
+...
+
+DynamoDbAsyncClientBuilder b = DynamoDbAsyncClient.builder().region(regoin);
+
+AlternatorAsyncHttpClient.Builder cb = AlternatorAsyncHttpClient
+                        .builder(endpoint_uri);
+b.httpClientBuilder(cb);
+b.endpointOverride(endpoint_uri);
+
+DynamoDbAsyncClient dynamoDBClient = b.build();
+
+```
+
+You can see `src/test/java/com/scylladb/alternator/test/Demo3.java` for a
+complete example of using client-side load balancing with AWS SDK for Java v2 asynchronous API.
+After building with `mvn package`, you can run this demo with the command:
+```
+mvn exec:java -Dexec.mainClass=com.scylladb.alternator.test.Demo3 -Dexec.classpathScope=test
+```
+
 ## Note about the difference between v1 and v2 support
 
 For historic reasons, our support for v1 and v2, explained above, is

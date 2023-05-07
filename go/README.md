@@ -21,26 +21,31 @@ and makes it do the right thing for Alternator.
 
 ## The `alternator_lb.go` library
 The `AlternatorNodes` class defined in `alternator_lb.go` can be used to
-easily change any application using `aws-sdk-go` from using Amazon DynamoDB
+easily change any application using `aws-sdk-go-v2` from using Amazon DynamoDB
 to use Alternator: While DynamoDB only has one "endpoint", this class helps
 us balance the requests between all the nodes in the Alternator cluster.
  
 ## Using the library
 To use this class, simply replace the code which creates a AWS SDK
-`session.Session`
-Instead of the usual way of creating a `Seassion`, like:
+`aws.Config`
+Instead of the usual way of creating a `Config`, like:
 ```golang
-sess := session.Must(session.NewSessionWithOptions(session.Options{
-            SharedConfigState: session.SharedConfigEnable,
+cfg, err := config.LoadDefaultConfig(ctx)
 ```
 Use an `AlternatorNodes` object, which keeps track of the live Alternator
 nodes, to create a session with the following commands:
 ```golang
 alternator_nodes := NewAlternatorNodes("http", 8000, []string {"127.0.0.1"})
 sess := alternator_nodes.session("dog.scylladb.com", "alternator", "secret_pass")
+
+alternatorNodes := NewAlternatorNodes("http", 8000, "127.0.0.1")
+alternatorNodes.Start(ctx, 1*time.Second)
+defer alternatorNodes.Stop()
+
+cfg := alternatorNodes.Config("dog.scylladb.com", "alternator", "secret_pass")
 ```
-Then, the rest of the applicaton can use this session normally - call
-`db := dynamodb.New(sess)` and then send DynamoDB requests to db; As
+Then, the rest of the applicaton can use this config normally - call
+db := dynamodb.NewFromConfig(cfg)` and then send DynamoDB requests to db; As
 usual, this `db` object is thread-safe and can be used from multiple
 threads.
 
@@ -48,7 +53,7 @@ The parameters to `NewAlternatorNodes()` indicate a list of known
 Alternator nodes, and their common scheme (http or https) and port.
 This list can contain one or more nodes - we then periodically contact
  these nodes to fetch the full list of nodes using Alternator's
-`/localnodes` request. In the `session()` method, one needs to pick a
+`/localnodes` request. In the `Config()` method, one needs to pick a
 "fake domain" which doesn't really mean anything (except it will be used as
 the Host header, and be returned by the DescribeEndpoints request), and
 the key and secret key for authentication to Alternator.
@@ -62,7 +67,7 @@ when we send another request to the same node.
 
 ## Example
 
-This directory also contains two trivial examples of using `alternator_lb.go`,
-[try.go](try.go). This example opens a session using `NewAlternatorNodes()`, as
+This directory also contains one trivial example of using `alternator_lb.go`,
+[example.go](example.go). This example opens a config using `NewAlternatorNodes()`, as
 described above, and then uses it 20 times in a loop - and we'll see
 that every request will be sent to a different node.

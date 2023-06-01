@@ -1,4 +1,4 @@
-package main
+package alternatorlb
 
 import (
 	"context"
@@ -18,6 +18,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// AlternatorNodes holds the configuration for the load balanced alternator nodes as well as some locks for the load balancing thread.
 type AlternatorNodes struct {
 	fetchInterval time.Duration
 	scheme        string
@@ -31,6 +32,7 @@ type AlternatorNodes struct {
 	cancelFunc context.CancelFunc
 }
 
+// NewAlternatorNodes creates a new, unstarted instance of the alternator nodes loadbalancing.
 func NewAlternatorNodes(scheme string, port int, initialNodes ...string) *AlternatorNodes {
 	return &AlternatorNodes{
 		scheme: scheme,
@@ -39,6 +41,7 @@ func NewAlternatorNodes(scheme string, port int, initialNodes ...string) *Altern
 	}
 }
 
+// Config produces a conf for the AWS SDK that will integrate the alternator loadbalancing with the AWS SDK.
 func (n *AlternatorNodes) Config(fake_domain string, key string, secret_key string) aws.Config {
 	fake_url := fmt.Sprintf("%s://%s:%d", n.scheme, fake_domain, n.port)
 
@@ -60,6 +63,7 @@ func (n *AlternatorNodes) Config(fake_domain string, key string, secret_key stri
 	}
 }
 
+// Start will start the loadbalancing thread that keep available alternator instances in sync and selectes the next instance for load balancing.
 func (n *AlternatorNodes) Start(ctx context.Context, fetchInterval time.Duration) {
 	ctx, cancelFunc := context.WithCancel(ctx)
 	n.ctx = ctx
@@ -69,6 +73,7 @@ func (n *AlternatorNodes) Start(ctx context.Context, fetchInterval time.Duration
 	go n.updateNodes()
 }
 
+// Stop will stop the loadbalancing thread and should be called once you are done with the AWS SDK session.
 func (n *AlternatorNodes) Stop() {
 	n.cancelFunc()
 }

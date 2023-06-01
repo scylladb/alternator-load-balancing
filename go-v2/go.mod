@@ -1,4 +1,4 @@
-module github.com/scylladb/alternator-load-balancing
+module github.com/scylladb/alternator-load-balancing/go-v2
 
 go 1.20
 

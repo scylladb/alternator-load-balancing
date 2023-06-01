@@ -1,7 +1,7 @@
 // To run this example, just run:
 //       go run example.go
 
-package main
+package alternatorlb_test
 
 import (
 	"context"
@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	alternatorlb "github.com/scylladb/alternator-load-balancing/go-v2"
 )
 
-func main() {
+func ExampleAlternatorNodes() {
 	ctx := context.Background()
 
 	// Uncomment to use Amazon DynamoDB configured in ~/.aws/
@@ -20,7 +21,7 @@ func main() {
 
 	// Use the local Alternator with our silly testing alternator/secret_pass
 	// authentication - and the new load balancing code.
-	alternatorNodes := NewAlternatorNodes("http", 8000, "127.0.0.1")
+	alternatorNodes := alternatorlb.NewAlternatorNodes("http", 8000, "127.0.0.1")
 	alternatorNodes.Start(ctx, 1*time.Second)
 	defer alternatorNodes.Stop()
 

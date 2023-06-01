@@ -35,7 +35,7 @@ cfg, err := config.LoadDefaultConfig(ctx)
 Use an `AlternatorNodes` object, which keeps track of the live Alternator
 nodes, to create a session with the following commands:
 ```golang
-alternatorNodes := NewAlternatorNodes("http", 8000, "127.0.0.1")
+alternatorNodes := alternatorlb.NewAlternatorNodes("http", 8000, "127.0.0.1")
 alternatorNodes.Start(ctx, 1*time.Second)
 defer alternatorNodes.Stop()
 

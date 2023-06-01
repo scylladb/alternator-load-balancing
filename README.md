@@ -71,7 +71,7 @@ differently; From there on, the usual unmodified AWS SDK functions will
 automatically use all of Alternator's nodes instead of just one.
 
 We currently provide libraries to do exactly that in five programming
-languages: [go](go), [java](java), [javascript](javascript) (node.js),
+languages: [go (AWS SDK v1)](go-v1), [go (AWS SDK v2)](go-v2), [java](java), [javascript](javascript) (node.js),
 [python](python) and [C++](cpp). Each of these directories includes a README
 file explaining how to use this library in an application. These libraries are
 not complete DynamoDB drivers - the application continues to use Amazon's

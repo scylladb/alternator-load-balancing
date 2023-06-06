@@ -1,5 +1,5 @@
 // To run this example, just run:
-//       go run example.go
+//       go test example_test.go
 
 package alternatorlb_test
 
@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	alternatorlb "github.com/scylladb/alternator-load-balancing/go-v2"
+	alternatorlb "github.com/scylladb/alternator-load-balancing/go/v2"
 )
 
 func ExampleAlternatorNodes() {

@@ -9,7 +9,7 @@ All code in this repository is open source, licensed under the
 ## Introduction
 
 **[Scylla](https://github.com/scylladb/scylla)** is an open-source distributed
-database.  **[Alternator](https://docs.scylladb.com/using-scylla/alternator/)**
+database. **[Alternator](https://docs.scylladb.com/using-scylla/alternator/)**
 is a Scylla feature which adds Amazon DynamoDB&trade; compatibility to
 Scylla. With Alternator, Scylla is fully (or [almost fully](https://github.com/scylladb/scylla/blob/master/docs/alternator/compatibility.md))
 compatible with DynamoDB's HTTP and JSON based API. Unmodified applications
@@ -18,11 +18,12 @@ can connect to a Scylla Alternator cluster instead of to Amazon's DynamoDB.
 
 However, there is still one fundamental difference between how DynamoDB
 and a Scylla cluster appear to an application:
-  * The entire DynamoDB service is presented to the application as a
-    **single endpoint**, for example
-    `http://dynamodb.us-east-1.amazonaws.com`.
-  * Scylla is not a single endpoint - it is a _distributed_ database - a
-    cluster of **many nodes**.
+
+- The entire DynamoDB service is presented to the application as a
+  **single endpoint**, for example
+  `http://dynamodb.us-east-1.amazonaws.com`.
+- Scylla is not a single endpoint - it is a _distributed_ database - a
+  cluster of **many nodes**.
 
 If we configure the application to use just one of the Scylla nodes as the
 single endpoint, this specific node will become a performance bottleneck
@@ -71,7 +72,7 @@ differently; From there on, the usual unmodified AWS SDK functions will
 automatically use all of Alternator's nodes instead of just one.
 
 We currently provide libraries to do exactly that in five programming
-languages: [go (AWS SDK v1)](go-v1), [go (AWS SDK v2)](go-v2), [java](java), [javascript](javascript) (node.js),
+languages: [go (AWS SDK v1)](go/v1), [go (AWS SDK v2)](go/v2), [java](java), [javascript](javascript) (node.js),
 [python](python) and [C++](cpp). Each of these directories includes a README
 file explaining how to use this library in an application. These libraries are
 not complete DynamoDB drivers - the application continues to use Amazon's

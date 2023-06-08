@@ -160,7 +160,11 @@ func (n *AlternatorNodes) loadBalancerMiddleware(domain string) middleware.Final
 				// Note that HTTPRequest ignores the "Host" header - and instead
 				// has a spearate "Host" member:
 				v.Host = host
+			} else {
+				fmt.Println("Encountered non-loadbalanced URL:", v.URL)
 			}
+		default:
+			fmt.Println("Encountered non-loadbalancable type:", v)
 		}
 
 		return next.HandleFinalize(ctx, in)

@@ -14,7 +14,7 @@ import java.util.logging.Level;
 // For enabling trace-level logging
 import java.util.logging.Logger;
 
-import com.scylladb.alternator.AlternatorAsyncHttpClient;
+import com.scylladb.alternator.AlternatorEndpointProvider;
 
 import net.sourceforge.argparse4j.ArgumentParsers;
 import net.sourceforge.argparse4j.inf.ArgumentParser;
@@ -25,7 +25,10 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientAsyncConfiguration;
 import software.amazon.awssdk.core.client.config.SdkAdvancedAsyncClientOption;
+import software.amazon.awssdk.core.internal.http.loader.DefaultSdkAsyncHttpClientBuilder;
+import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.SdkHttpConfigurationOption;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -92,23 +95,21 @@ public class Demo3 {
 
         if (endpoint != null) {
             URI uri = URI.create(endpoint);
+           AlternatorEndpointProvider alternatorEndpointProvider = new AlternatorEndpointProvider(uri);
+
 
             if (trustSSL != null && trustSSL.booleanValue()) {
                 // In our test setup, the Alternator HTTPS server set up with a
                 // self-signed certficate, so we need to disable certificate
                 // checking. Obviously, this doesn't need to be done in
                 // production code.
-                SdkAsyncHttpClient ac = AlternatorAsyncHttpClient.builder(uri)
-                        .buildWithDefaults(AttributeMap.builder().put(
-                                SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES,
-                                true).build());
-                b.httpClient(ac);
-            } else {
-                AlternatorAsyncHttpClient.Builder cb = AlternatorAsyncHttpClient
-                        .builder(uri);
-                b.httpClientBuilder(cb);
+                SdkAsyncHttpClient http = new DefaultSdkAsyncHttpClientBuilder().buildWithDefaults(
+                        AttributeMap.builder()
+                            .put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, true)
+                            .build());
+                b.httpClient(http);
             }
-            b.endpointOverride(uri);
+            b.endpointProvider(alternatorEndpointProvider);
         }
 
         if (user != null) {

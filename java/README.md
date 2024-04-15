@@ -25,7 +25,8 @@ API. It was released in 2017, and announced in the following post:
 https://aws.amazon.com/blogs/developer/aws-sdk-for-java-2-0-developer-preview/
 However, although Amazon recommend version 2 for new applications, both
 versions are still in popular use today, so the Alternator load balancing
-library described here supports both.
+library described here supports both (our version 2 support requires 2.20
+or above).
 
 ## The LoadBalancing jar
 To build a jar of the Alternator client-side load balancer, use
@@ -127,23 +128,39 @@ code that looks something like this:
         StaticCredentialsProvider.create(AwsBasicCredentials.create("myuser", "mypassword"));
     URI uri = URI.create("https://127.0.0.1:8043");
     DynamoDbClient client = DynamoDbClient.builder()
+        .region(Region.US_EAST_1)
         .endpointOverride(url)
         .credentialsProvider(myCredentials)
         .build();
 ```
 
-To use the Alternator load balancer and all Alternator nodes, you need to use
-`AlternatorClient` instead of `DynamoDbClient` to build the client.
+The `region()` chosen doesn't matter when the endpoint is explicitly chosen
+with `endpointOverride()`, but nevertheless should be specified otherwise the
+SDK will try to look it up in a configuration file, and complain if it isn't
+set there.
+
+To use the Alternator load balancer and all Alternator nodes, all you need to
+change in the above code is to replace the `endpointOverride()` call by a call
+to `endpointProvider()`, giving it a new `AlternatorEndpointProvider` object
+which takes care of updating the knowledge of the live nodes in the Scylla
+cluster and choosing a different one for each request.
+
 The new code will look like this:
 
 ```java
-    import com.scylladb.alternator.AlternatorClient;
-
+    static AwsCredentialsProvider myCredentials =
+        StaticCredentialsProvider.create(AwsBasicCredentials.create("myuser", "mypassword"));
     URI uri = URI.create("https://127.0.0.1:8043");
-    DynamoDbClient client = AlternatorClient.builder(uri.getScheme(), uri.getHost(), uri.getPort())
+    AlternatorEndpointProvider alternatorEndpointProvider = new AlternatorEndpointProvider(uri);
+    DynamoDbClient client = DynamoDbClient.builder()
+        .region(Region.US_EAST_1)
+        .endpointProvider(alternatorEndpointProvider)
         .credentialsProvider(myCredentials)
         .build();
 ```
+
+Please note that the `endpointProvider()` API is new to AWS Java SDK 2.20
+(Release February 2023), so you should use this version or newer.
 
 The application can then use this `DynamoDBClient` object completely normally,
 just that each request will go to a different Alternator node, instead of all
@@ -165,21 +182,20 @@ mvn exec:java -Dexec.mainClass=com.scylladb.alternator.test.Demo2 -Dexec.classpa
 
 When using SDK v2, you can achieve better scalability and performance using the asynchronous
 versions of API calls and `java.util.concurrent` completion chaining. 
-To create a `DynamoDbAsyncClient` using alternator load balancing, the code would look something like:
+To create a `DynamoDbAsyncClient` using alternator load balancing, the code should again just
+use the `endpointProvider()` method on the `DynamoDBAsyncClientBuilder`, passing an
+`AlternatorEndpointProvider` object. E.g., something like:
 
 ```java
-import com.scylladb.alternator.AlternatorAsyncHttpClient;
-...
-
-DynamoDbAsyncClientBuilder b = DynamoDbAsyncClient.builder().region(regoin);
-
-AlternatorAsyncHttpClient.Builder cb = AlternatorAsyncHttpClient
-                        .builder(endpoint_uri);
-b.httpClientBuilder(cb);
-b.endpointOverride(endpoint_uri);
-
-DynamoDbAsyncClient dynamoDBClient = b.build();
-
+    static AwsCredentialsProvider myCredentials =
+        StaticCredentialsProvider.create(AwsBasicCredentials.create("myuser", "mypassword"));
+    URI uri = URI.create("https://127.0.0.1:8043");
+    AlternatorEndpointProvider alternatorEndpointProvider = new AlternatorEndpointProvider(uri);
+    DynamoDbAsyncClient client = DynamoDbAsyncClient.builder()
+        .region(Region.US_EAST_1)
+        .endpointProvider(alternatorEndpointProvider)
+        .credentialsProvider(myCredentials)
+        .build();
 ```
 
 You can see `src/test/java/com/scylladb/alternator/test/Demo3.java` for a
@@ -188,31 +204,3 @@ After building with `mvn package`, you can run this demo with the command:
 ```
 mvn exec:java -Dexec.mainClass=com.scylladb.alternator.test.Demo3 -Dexec.classpathScope=test
 ```
-
-## Note about the difference between v1 and v2 support
-
-For historic reasons, our support for v1 and v2, explained above, is
-implemented differently. Whereas for v1 we have a simple implementation,
-based on the SDK's RequestHandler2 extension point, for v2 we rely on a
-significantly more complex implementation, which replaces the HTTP server
-implementation by a different one (and our jar contains a modified copy
-of Apache's HTTP server).
-
-One of the implications of the different implementation is how SSL requests
-work differently in both implementations:
-
-In the RequestHandler2-based v1 implementation, the request is prepared
-for one specific Alternator node's IP address as an endpoint, e.g.,
-"https://1.2.3.4" when we decide to send the request to node 1.2.3.4.
-If SSL is used, this means that this node will need to have an SSL
-certificate for its own IP address - and each node needs a different
-certificate.
-In contrast, in the v2 implementation the request is sent to different nodes,
-but is **prepared** as if it's going to one hostname (defined as
-`AlternatorHttpClient.FAKE_HOST`). So in this case, all nodes need to have
-the _same_ SSL certificate, made out to the this single hostname.
-
-This different implementation only matters for SLL connections, and today
-we believe that the approach we used for v1 is more useful, so in the
-future we plan to use it for v2 as well. In v2 we should probably use
-ExecutionInterceptor, which has a similar goal to v1's RequestHandler2.

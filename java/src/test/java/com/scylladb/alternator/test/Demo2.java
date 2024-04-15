@@ -1,15 +1,13 @@
 package com.scylladb.alternator.test;
 
-import com.scylladb.alternator.AlternatorClient;
-
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
+import com.scylladb.alternator.AlternatorEndpointProvider;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.DescribeEndpointsRequest;
 import software.amazon.awssdk.services.dynamodb.model.DescribeEndpointsResponse;
 import software.amazon.awssdk.http.SdkHttpConfigurationOption;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.utils.AttributeMap;
 
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -56,18 +54,25 @@ public class Demo2 {
 
     // And this is the Alternator-specific way to get a DynamoDB connection
     // which load-balances several Scylla nodes.
+    // Basically the only change is replacing the endpointOverride() call
+    // with its fixed endpoind URL, with an endpointProvider() call, giving
+    // an AlternatorEndpointProvider object.
     static DynamoDbClient getAlternatorClient(URI url) {
         // To support HTTPS connections to a test server *without* checking
         // SSL certificates we need the httpClient() hack. It's of course not
         // needed in a production installation.
-        //SdkHttpClient http = ApacheHttpClient.builder().buildWithDefaults(
-        //    AttributeMap.builder()
-        //        .put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, true)
-        //        .build());
-        return AlternatorClient.builder(url.getScheme(), url.getHost(), url.getPort())
-            .credentialsProvider(myCredentials)
-            .build();
-    }
+        SdkHttpClient http = ApacheHttpClient.builder().buildWithDefaults(
+            AttributeMap.builder()
+                .put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, true)
+                .build());
+        AlternatorEndpointProvider alternatorEndpointProvider = new AlternatorEndpointProvider(url);
+        return DynamoDbClient.builder()
+                .credentialsProvider(myCredentials)
+                .httpClient(http)
+                .region(Region.US_EAST_1) // unused, but if missing can result in error
+                .endpointProvider(alternatorEndpointProvider)
+                .build();
+        }
 
     public static void main(String[] args) {
         // The load balancer library logs the list of live nodes, and hosts
@@ -81,7 +86,7 @@ public class Demo2 {
         logger.setUseParentHandlers(false);
 
         // In our test setup, the Alternator HTTPS server set up with a self-
-        // signed certficate, so we need to disable certificate checking.
+        // signed certificate, so we need to disable certificate checking.
         // Obviously, this doesn't need to be done in production code.
         disableCertificateChecks();
 

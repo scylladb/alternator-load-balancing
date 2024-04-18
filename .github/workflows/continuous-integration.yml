@@ -1,0 +1,23 @@
+name: Continuous Integration
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  compile:
+    name: Compile Java Module
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 8
+          cache: maven
+      - name: Compile Tests
+        run: mvn test-compile

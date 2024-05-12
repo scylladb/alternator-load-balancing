@@ -122,7 +122,6 @@ def setup1(known_nodes, scheme, port, fake_domain):
         if (host == alternator_fake_domain):
             # TODO: consider whether random, or round-robin, is better.
             host = random.choice(livenodes)
-            print("picked {}".format(host))
         return orig_getaddrinfo(host, *args)
     socket.getaddrinfo = new_getaddrinfo
     return "{}://{}:{}".format(alternator_scheme, fake_domain, alternator_port)
@@ -157,7 +156,6 @@ def setup2(known_nodes, scheme, port, fake_domain):
             # TODO: consider whether random, or round-robin, is better.
             host = random.choice(livenodes)
             request.url = "{}://{}:{}/".format(alternator_scheme, host, alternator_port)
-            print("picked {}".format(request.url))
             # botocore does not set a "Host" header, but it turns out the
             # lower-level urllib3 library adds one automatically using the
             # connection's url, which we now changed to be an IP address.

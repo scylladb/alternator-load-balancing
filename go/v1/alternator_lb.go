@@ -139,7 +139,6 @@ func (this *AlternatorNodes) session(
 		fake_host := fmt.Sprintf("%s:%d", fake_domain, this.port)
 		if r.HTTPRequest.URL.Host == fake_host {
 			new_url := url.URL{Scheme: this.scheme, Host: fmt.Sprintf("%s:%d", this.pickone(), this.port)}
-			fmt.Printf("Alternator load balacing %s -> %s\n", r.HTTPRequest.URL.String(), new_url.String())
 			*r.HTTPRequest.URL = new_url
 			// The request is already signed with a signature including
 			// fake_host. We must set the "Host" header in the request

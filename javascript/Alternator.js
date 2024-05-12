@@ -28,7 +28,6 @@ agent.createConnection = function(options, callback = null) {
         if (hostname == FAKE_HOST) {
             var host = hosts[hostIdx];
             hostIdx = (hostIdx + 1) % hosts.length;
-            console.log("Picked", host);
             return dns.lookup(host, options, callback);
         }
         return dns.lookup(hostname, options, callback);
@@ -47,7 +46,6 @@ async function updateHosts() {
         resp.on('data', (payload) => {
             payload = JSON.parse(payload);
             hosts = payload;
-            console.log("Hosts updated to", hosts);
         });
     });
     await new Promise(r => setTimeout(r, 1000));

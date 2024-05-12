@@ -152,7 +152,6 @@ func (n *AlternatorNodes) loadBalancerMiddleware(domain string) middleware.Final
 			if v.URL != nil && v.URL.Host == host {
 				pickedNode := n.pickNode()
 				new_url := url.URL{Scheme: n.scheme, Host: fmt.Sprintf("%s:%d", pickedNode, n.port)}
-				fmt.Printf("Alternator load balacing %s -> %s\n", v.URL.String(), new_url.String())
 				*v.URL = new_url
 				// The request is already signed with a signature including
 				// fake_host. We must set the "Host" header in the request

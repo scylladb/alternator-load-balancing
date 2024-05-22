@@ -28,19 +28,38 @@ versions are still in popular use today, so the Alternator load balancing
 library described here supports both (our version 2 support requires 2.20
 or above).
 
-## The LoadBalancing jar
+## Add `load-balancing` to your project
+
+### Maven Dependency
+
+Add the `load-balancing` dependency to your Maven project by adding the
+following `dependency` to your `pom.xml` definition:
+
+~~~ xml
+<dependency>
+  <groupId>com.scylladb.alternator</groupId>
+  <artifactId>load-balancing</artifactId>
+  <version>1.0.0</version>
+</dependency>
+~~~
+
+You can find the latest version [here](https://central.sonatype.com/artifact/com.scylladb.alternator/load-balancing).
+
+### Alternatively, build the LoadBalancing jar
 To build a jar of the Alternator client-side load balancer, use
 ```
 mvn package
 ```
-Which creates `target/LoadBalancing-1.0.jar`.
+Which creates `target/load-balancing-1.0.0-SNAPSHOT.jar`.
 
-As explained above, this jar does not _replace_ the AWS SDK for Java, but
+## Usage
+
+As explained above, this package does not _replace_ the AWS SDK for Java, but
 accompanies it, and either version 1 or 2 of the AWS SDK for Java can be
 used (the details on how to use are slightly different for each version,
 so will be explained in separate sections below).
 
-As we show below, the jar provides a new mechanism to configure a
+As we show below, the package provides a new mechanism to configure a
 DynamoDB (v1) or DynamoDbClient (v2) object, which the application
 can then use normally using the standard AWS SDK for Java, to make
 requests. The load balancer library ensures that each of these requests
@@ -52,7 +71,7 @@ changes. It does this using an additional background thread, which
 periodically polls one of the known nodes, asking it for a list of all other
 nodes (in this data-center).
 
-## Using the library, in AWS SDK for Java v1
+### Using the library, in AWS SDK for Java v1
 
 An application using AWS SDK for Java v1 creates a `DynamoDB` object and then
 uses it to perform various requests. Traditionally, to create such an object,
@@ -116,7 +135,7 @@ After building with `mvn package`, you can run this demo with the command:
 mvn exec:java -Dexec.mainClass=com.scylladb.alternator.test.Demo1 -Dexec.classpathScope=test
 ```
 
-## Using the library, in AWS SDK for Java v2
+### Using the library, in AWS SDK for Java v2
 
 An application using AWS SDK for Java v2 creates a `DynamoDbClient` object
 and then uses it to perform various requests. Traditionally, to create such
@@ -178,7 +197,7 @@ After building with `mvn package`, you can run this demo with the command:
 mvn exec:java -Dexec.mainClass=com.scylladb.alternator.test.Demo2 -Dexec.classpathScope=test
 ```
 
-### Asyncronous operation in SDK v2
+#### Asyncronous operation in SDK v2
 
 When using SDK v2, you can achieve better scalability and performance using the asynchronous
 versions of API calls and `java.util.concurrent` completion chaining. 

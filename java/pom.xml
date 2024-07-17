@@ -117,8 +117,8 @@
                         <extensions>true</extensions>
                         <configuration>
                             <serverId>ossrh</serverId>
-                            <nexusUrl>https://oss.sonatype.org</nexusUrl> <!-- TODO Check whether we should use s01.oss.sonatype.org instead -->
-                            <autoReleaseAfterClose>false</autoReleaseAfterClose> <!-- TODO set to true after successful manual release -->
+                            <nexusUrl>https://oss.sonatype.org</nexusUrl>
+                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
                         </configuration>
                     </plugin>
                 </plugins>

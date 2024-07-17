@@ -27,7 +27,9 @@ jobs:
           gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
       - name: Publish
-        run: mvn -Drevision=${{ inputs.releaseVersion }} clean deploy -Prelease
+        run: |
+          mvn versions:set -DnewVersion ${{ inputs.releaseVersion }}
+          mvn clean deploy -Prelease
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_CENTRAL_TOKEN: ${{ secrets.MAVEN_CENTRAL_TOKEN }}

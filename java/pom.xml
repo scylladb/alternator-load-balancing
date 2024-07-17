@@ -5,7 +5,7 @@
 
     <groupId>com.scylladb.alternator</groupId>
     <artifactId>load-balancing</artifactId>
-    <version>${revision}</version>
+    <version>1.0.0-SNAPSHOT</version>
     <name>Scylla Alternator client performing load balancing</name>
     <description>DynamoDB client request handler balancing the load across all the nodes of a Scylla cluster</description>
     <url>https://github.com/scylladb/alternator-load-balancing</url>
@@ -14,7 +14,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <revision>1.0.0-SNAPSHOT</revision>
     </properties>
 
     <dependencyManagement>
@@ -155,4 +154,14 @@
             <organization>ScyllaDB</organization>
         </developer>
     </developers>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>versions-maven-plugin</artifactId>
+                <version>2.17.1</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>

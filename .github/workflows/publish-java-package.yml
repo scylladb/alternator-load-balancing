@@ -28,7 +28,7 @@ jobs:
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
       - name: Publish
         run: |
-          mvn versions:set -DnewVersion ${{ inputs.releaseVersion }}
+          mvn versions:set -DnewVersion=${{ inputs.releaseVersion }}
           mvn clean deploy -Prelease
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}

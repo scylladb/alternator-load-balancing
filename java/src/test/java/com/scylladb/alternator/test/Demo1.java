@@ -60,7 +60,29 @@ public class Demo1 {
     // And this is the Alternator-specific way to get a DynamoDB connection
     // which load-balances several Scylla nodes.
     static DynamoDB getAlternatorClient(URI uri) {
+        AlternatorRequestHandler handler = new AlternatorRequestHandler(uri).start();
+        AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard()
+            // The endpoint doesn't matter, we will override it anyway in the
+            // RequestHandler, but without setting it the library will complain
+            // if "region" isn't set in the configuration file.
+            .withRegion("region-doesnt-matter")
+            .withRequestHandlers(handler)
+            .withCredentials(myCredentials)
+            .build();
+        return new DynamoDB(client);
+    }
+
+    // And this is the Alternator-specific way to get a DynamoDB connection
+    // which load-balances several Scylla nodes.
+    static DynamoDB getAlternatorClient(URI uri, String rack, String datacenter) {
         AlternatorRequestHandler handler = new AlternatorRequestHandler(uri);
+        if (rack != null && !rack.isEmpty()) {
+            handler.setRack(rack);
+        }
+        if (datacenter != null && !datacenter.isEmpty()) {
+            handler.setDatacenter(datacenter);
+        }
+        handler.checkIfRackAndDatacenterSetCorrectly().start();
         AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard()
             // The endpoint doesn't matter, we will override it anyway in the
             // RequestHandler, but without setting it the library will complain
@@ -90,6 +112,7 @@ public class Demo1 {
 
         //DynamoDB ddb = getTraditionalClient(URI.create("https://localhost:8043"));
         //DynamoDB ddb = getTraditionalClient(URI.create("http://localhost:8000"));
+        //DynamoDB ddb = getAlternatorClient(URI.create("http://127.0.39.1:8080"), "rack1", "dc1");
         DynamoDB ddb = getAlternatorClient(URI.create("https://127.0.0.1:8043"));
 
         Random rand = new Random();

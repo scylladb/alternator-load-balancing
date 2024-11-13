@@ -18,6 +18,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // AlternatorNodes holds the configuration for the load balanced alternator nodes as well as some locks for the load balancing thread.
 type AlternatorNodes struct {
 	fetchInterval time.Duration
@@ -26,6 +30,7 @@ type AlternatorNodes struct {
 
 	nodes         []string
 	nextNodeIndex int
+	httpClient    httpClient
 
 	mutex      sync.Mutex
 	ctx        context.Context
@@ -35,10 +40,16 @@ type AlternatorNodes struct {
 // NewAlternatorNodes creates a new, unstarted instance of the alternator nodes loadbalancing.
 func NewAlternatorNodes(scheme string, port int, initialNodes ...string) *AlternatorNodes {
 	return &AlternatorNodes{
-		scheme: scheme,
-		port:   port,
-		nodes:  initialNodes,
+		scheme:     scheme,
+		port:       port,
+		nodes:      initialNodes,
+		httpClient: http.DefaultClient,
 	}
+}
+
+// SetHTTPClient changes underlying http client used for fetching the list of alternator nodes.
+func (n *AlternatorNodes) SetHTTPClient(client httpClient) {
+	n.httpClient = client
 }
 
 // Config produces a conf for the AWS SDK that will integrate the alternator loadbalancing with the AWS SDK.
@@ -116,7 +127,7 @@ func (n *AlternatorNodes) doUpdateNodes() error {
 		return err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := n.httpClient.Do(req)
 	if err != nil {
 		return err
 	}

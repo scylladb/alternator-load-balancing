@@ -19,7 +19,12 @@ import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import net.sourceforge.argparse4j.ArgumentParsers;
+import net.sourceforge.argparse4j.inf.ArgumentParser;
+import net.sourceforge.argparse4j.inf.ArgumentParserException;
+import net.sourceforge.argparse4j.inf.Namespace;
 
+import java.net.URISyntaxException;
 import java.util.Random;
 import java.util.Arrays;
 
@@ -41,13 +46,10 @@ import java.util.logging.ConsoleHandler;
 
 public class Demo1 {
 
-    // Set here the authentication credentials needed by the server:
-    static AWSCredentialsProvider myCredentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials("alternator", "secret_pass"));
-
     // The following is the "traditional" way to get a DynamoDB connection to
     // a specific endpoint URL, with no client-side load balancing, or any
     // Alternator-specific code.
-    static DynamoDB getTraditionalClient(URI url) {
+    static DynamoDB getTraditionalClient(URI url, AWSCredentialsProvider myCredentials) {
         AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard()
             .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
                 url.toString(), "region-doesnt-matter"))
@@ -58,8 +60,8 @@ public class Demo1 {
 
     // And this is the Alternator-specific way to get a DynamoDB connection
     // which load-balances several Scylla nodes.
-    static DynamoDB getAlternatorClient(URI uri) {
-        AlternatorRequestHandler handler = new AlternatorRequestHandler(uri);
+    static DynamoDB getAlternatorClient(URI uri, AWSCredentialsProvider myCredentials, String datacenter, String rack) {
+        AlternatorRequestHandler handler = new AlternatorRequestHandler(uri, datacenter, rack);
         AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard()
             // The endpoint doesn't matter, we will override it anyway in the
             // RequestHandler, but without setting it the library will complain
@@ -82,14 +84,56 @@ public class Demo1 {
         logger.addHandler(handler);
         logger.setUseParentHandlers(false);
 
+        ArgumentParser parser = ArgumentParsers.newFor("Demo1").build()
+                .defaultHelp(true).description(
+                        "Simple example of AWS SDK v1 alternator access");
+
+        try {
+            parser.addArgument("-e", "--endpoint")
+                    .setDefault(new URI("http://localhost:8043"))
+                    .help("DynamoDB/Alternator endpoint");
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+        parser.addArgument("-u", "--user").setDefault("none")
+                .help("Credentials username");
+        parser.addArgument("-p", "--password").setDefault("none")
+                .help("Credentials password");
+        parser.addArgument("--datacenter").type(String.class).setDefault("")
+                .help("Target only nodes from particular datacenter. If it is not provided it is going to target datacenter of the endpoint.");
+        parser.addArgument("--rack").type(String.class).setDefault("")
+                .help("Target only nodes from particular rack");
+        parser.addArgument("--no-lb").type(Boolean.class).setDefault(false)
+                .help("Turn off load balancing");
+
+        Namespace ns = null;
+        try {
+            ns = parser.parseArgs(args);
+        } catch (ArgumentParserException e) {
+            parser.handleError(e);
+            System.exit(1);
+        }
+
+        String endpoint = ns.getString("endpoint");
+        String user = ns.getString("user");
+        String pass = ns.getString("password");
+        String datacenter = ns.getString("datacenter");
+        String rack = ns.getString("rack");
+        Boolean disableLoadBalancing = ns.getBoolean("no-lb");
+
+
         // In our test setup, the Alternator HTTPS server set up with a self-
         // signed certficate, so we need to disable certificate checking.
         // Obviously, this doesn't need to be done in production code.
         disableCertificateChecks();
 
-        //DynamoDB ddb = getTraditionalClient(URI.create("https://localhost:8043"));
-        //DynamoDB ddb = getTraditionalClient(URI.create("http://localhost:8000"));
-        DynamoDB ddb = getAlternatorClient(URI.create("https://127.0.0.1:8043"));
+        AWSCredentialsProvider myCredentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials(user, pass));
+        DynamoDB ddb;
+        if (disableLoadBalancing) {
+            ddb = getTraditionalClient(URI.create(endpoint), myCredentials);
+        } else {
+            ddb = getAlternatorClient(URI.create(endpoint), myCredentials, datacenter, rack);
+        }
 
         Random rand = new Random();
         String tabName = "table" + rand.nextInt(1000000);

@@ -4,6 +4,8 @@ import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import software.amazon.awssdk.endpoints.Endpoint;
 import software.amazon.awssdk.services.dynamodb.endpoints.DynamoDbEndpointParams;
@@ -17,16 +19,27 @@ import software.amazon.awssdk.services.dynamodb.endpoints.DynamoDbEndpointProvid
 public class AlternatorEndpointProvider implements DynamoDbEndpointProvider {
 	private final AlternatorLiveNodes liveNodes;
 	private final Map<URI, CompletableFuture<Endpoint>> futureCache;
+	private static Logger logger = Logger.getLogger(AlternatorEndpointProvider.class.getName());
 
 	public AlternatorEndpointProvider(URI seedURI) {
+		this(seedURI, "", "");
+	}
+
+	public AlternatorEndpointProvider(URI seedURI, String datacenter, String rack) {
 		futureCache = new ConcurrentHashMap<>();
-		liveNodes = new AlternatorLiveNodes(seedURI);
+		liveNodes = new AlternatorLiveNodes(seedURI, datacenter, rack);
 		try {
 			liveNodes.validate();
-		} catch (AlternatorLiveNodes.ValidationError e) {
+			liveNodes.checkIfRackAndDatacenterSetCorrectly();
+			if (!datacenter.isEmpty() || !rack.isEmpty()) {
+				if (!liveNodes.checkIfRackDatacenterFeatureIsSupported()) {
+					logger.log(Level.SEVERE, String.format("server %s does not support rack or datacenter filtering", seedURI));
+				}
+			}
+		} catch (AlternatorLiveNodes.ValidationError | AlternatorLiveNodes.FailedToCheck e) {
 			throw new RuntimeException(e);
-		}
-		liveNodes.start();
+        }
+        liveNodes.start();
 	}
 
 	@Override

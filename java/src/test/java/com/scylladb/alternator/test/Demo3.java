@@ -55,6 +55,10 @@ public class Demo3 {
                 .help("Max worker threads");
         parser.addArgument("--trust-ssl").type(Boolean.class).setDefault(false)
                 .help("Trust all certificates");
+        parser.addArgument("--datacenter").type(String.class).setDefault("")
+                .help("Target only nodes from particular datacenter. If it is not provided it is going to target datacenter of the endpoint.");
+        parser.addArgument("--rack").type(String.class).setDefault("")
+                .help("Target only nodes from particular rack");
 
         Namespace ns = null;
         try {
@@ -70,6 +74,8 @@ public class Demo3 {
         int threads = ns.getInt("threads");
         Region region = Region.of(ns.getString("region"));
         Boolean trustSSL = ns.getBoolean("trust-ssl");
+        String datacenter = ns.getString("datacenter");
+        String rack = ns.getString("rack");
 
         // The load balancer library logs the list of live nodes, and hosts
         // it chooses to send requests to, if the FINE logging level is
@@ -93,8 +99,7 @@ public class Demo3 {
 
         if (endpoint != null) {
             URI uri = URI.create(endpoint);
-            AlternatorEndpointProvider alternatorEndpointProvider = new AlternatorEndpointProvider(uri);
-
+            AlternatorEndpointProvider alternatorEndpointProvider = new AlternatorEndpointProvider(uri, datacenter, rack);
 
             if (trustSSL != null && trustSSL.booleanValue()) {
                 // In our test setup, the Alternator HTTPS server set up with a

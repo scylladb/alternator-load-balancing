@@ -1,6 +1,10 @@
 package com.scylladb.alternator.test;
 
 import com.scylladb.alternator.AlternatorEndpointProvider;
+import net.sourceforge.argparse4j.ArgumentParsers;
+import net.sourceforge.argparse4j.inf.ArgumentParser;
+import net.sourceforge.argparse4j.inf.ArgumentParserException;
+import net.sourceforge.argparse4j.inf.Namespace;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.DescribeEndpointsRequest;
 import software.amazon.awssdk.services.dynamodb.model.DescribeEndpointsResponse;
@@ -23,6 +27,8 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.security.cert.X509Certificate;
 
 // For enabling trace-level logging
@@ -32,12 +38,11 @@ import java.util.logging.ConsoleHandler;
 
 public class Demo2 {
     // Set here the authentication credentials needed by the server:
-    static AwsCredentialsProvider myCredentials = StaticCredentialsProvider.create(AwsBasicCredentials.create("alternator", "secret_pass"));
 
     // The following is the "traditional" way to get a DynamoDB connection to
     // a specific endpoint URL, with no client-side load balancing, or any
     // Alternator-specific code.
-    static DynamoDbClient getTraditionalClient(URI url) {
+    static DynamoDbClient getTraditionalClient(URI url, AwsCredentialsProvider myCredentials) {
         // To support HTTPS connections to a test server *without* checking
         // SSL certificates we need the httpClient() hack. It's of course not
         // needed in a production installation.
@@ -57,7 +62,7 @@ public class Demo2 {
     // Basically the only change is replacing the endpointOverride() call
     // with its fixed endpoind URL, with an endpointProvider() call, giving
     // an AlternatorEndpointProvider object.
-    static DynamoDbClient getAlternatorClient(URI url) {
+    static DynamoDbClient getAlternatorClient(URI url, AwsCredentialsProvider myCredentials, String datacenter, String rack) {
         // To support HTTPS connections to a test server *without* checking
         // SSL certificates we need the httpClient() hack. It's of course not
         // needed in a production installation.
@@ -65,7 +70,7 @@ public class Demo2 {
             AttributeMap.builder()
                 .put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, true)
                 .build());
-        AlternatorEndpointProvider alternatorEndpointProvider = new AlternatorEndpointProvider(url);
+        AlternatorEndpointProvider alternatorEndpointProvider = new AlternatorEndpointProvider(url, datacenter, rack);
         return DynamoDbClient.builder()
                 .credentialsProvider(myCredentials)
                 .httpClient(http)
@@ -85,13 +90,55 @@ public class Demo2 {
         logger.addHandler(handler);
         logger.setUseParentHandlers(false);
 
+        ArgumentParser parser = ArgumentParsers.newFor("Demo2").build()
+                .defaultHelp(true).description(
+                        "Simple example of AWS SDK v1 alternator access");
+
+        try {
+            parser.addArgument("-e", "--endpoint")
+                    .setDefault(new URI("http://localhost:8043"))
+                    .help("DynamoDB/Alternator endpoint");
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+        parser.addArgument("-u", "--user").setDefault("none")
+                .help("Credentials username");
+        parser.addArgument("-p", "--password").setDefault("none")
+                .help("Credentials password");
+        parser.addArgument("--datacenter").type(String.class).setDefault("")
+                .help("Target only nodes from particular datacenter. If it is not provided it is going to target datacenter of the endpoint.");
+        parser.addArgument("--rack").type(String.class).setDefault("")
+                .help("Target only nodes from particular rack");
+        parser.addArgument("--no-lb").type(Boolean.class).setDefault(false)
+                .help("Turn off load balancing");
+
+        Namespace ns = null;
+        try {
+            ns = parser.parseArgs(args);
+        } catch (ArgumentParserException e) {
+            parser.handleError(e);
+            System.exit(1);
+        }
+
+        String endpoint = ns.getString("endpoint");
+        String user = ns.getString("user");
+        String pass = ns.getString("password");
+        String datacenter = ns.getString("datacenter");
+        String rack = ns.getString("rack");
+        Boolean disableLoadBalancing = ns.getBoolean("no-lb");
+
+
         // In our test setup, the Alternator HTTPS server set up with a self-
         // signed certificate, so we need to disable certificate checking.
         // Obviously, this doesn't need to be done in production code.
         disableCertificateChecks();
-
-        //DynamoDbClient ddb = getTraditionalClient(URI.create("https://localhost:8043"));
-        DynamoDbClient ddb = getAlternatorClient(URI.create("https://localhost:8043"));
+        AwsCredentialsProvider myCredentials = StaticCredentialsProvider.create(AwsBasicCredentials.create(user, pass));
+        DynamoDbClient ddb;
+        if (disableLoadBalancing) {
+            ddb = getTraditionalClient(URI.create(endpoint), myCredentials);
+        } else {
+            ddb = getAlternatorClient(URI.create(endpoint), myCredentials, datacenter, rack);
+        }
 
         // run DescribeEndpoints several times
         for (int i=0; i<10; i++) {

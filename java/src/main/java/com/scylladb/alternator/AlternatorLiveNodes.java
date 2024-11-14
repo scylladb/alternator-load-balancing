@@ -1,6 +1,5 @@
 package com.scylladb.alternator;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Scanner;
@@ -8,9 +7,7 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URL;
 import java.net.URISyntaxException;
-import java.net.MalformedURLException;
 import java.net.HttpURLConnection;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
@@ -81,18 +78,16 @@ public class AlternatorLiveNodes extends Thread {
         try {
             return new URI(alternatorScheme, null, nextNode(), alternatorPort, "", null, null);
         } catch (URISyntaxException e) {
-            // Can't happen with the empty path and other nulls we used above...
             logger.log(Level.WARNING, "nextAsURI", e);
             return null;
         }
     }
 
-    public URL nextAsURL(String file) {
+    public URI nextAsURI(String file) {
         try {
-            return new URL(alternatorScheme, nextNode(), alternatorPort, file);
-        } catch (MalformedURLException e) {
-            // Can only happen if alternatorScheme is an unknown one.
-            logger.log(Level.WARNING, "nextAsURL", e);
+            return new URI(alternatorScheme, "",  nextNode(), alternatorPort, file, "", "");
+        } catch (URISyntaxException e) {
+            logger.log(Level.WARNING, "nextAsURI", e);
             return null;
         }
     }
@@ -106,11 +101,11 @@ public class AlternatorLiveNodes extends Thread {
 
     private void updateLiveNodes() {
         List<String> newHosts = new ArrayList<>();
-        URL url = nextAsURL("/localnodes");
+        URI uri = nextAsURI("/localnodes");
         try {
             // Note that despite this being called HttpURLConnection, it actually
             // supports HTTPS as well.
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
             conn.setRequestMethod("GET");
             int responseCode = conn.getResponseCode();
             if (responseCode == HttpURLConnection.HTTP_OK)  {
@@ -126,7 +121,7 @@ public class AlternatorLiveNodes extends Thread {
                 }
             }
         } catch (IOException e) {
-            logger.log(Level.FINE, "Request failed: " + url, e);
+            logger.log(Level.FINE, "Request failed: " + uri, e);
         }
         if (!newHosts.isEmpty()) {
             liveNodes.set(newHosts);

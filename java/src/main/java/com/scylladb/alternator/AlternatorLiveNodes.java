@@ -1,17 +1,18 @@
 package com.scylladb.alternator;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.Arrays;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.net.URISyntaxException;
 import java.net.MalformedURLException;
 import java.net.HttpURLConnection;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
@@ -25,11 +26,11 @@ import java.util.logging.Level;
  * to one of these nodes.
  */
 public class AlternatorLiveNodes extends Thread {
-    private String alternatorScheme;
-    private int alternatorPort;
+    private final String alternatorScheme;
+    private final int alternatorPort;
 
-    private List<String> liveNodes;
-    private int nextLiveNodeIndex;
+    private final AtomicReference<List<String>> liveNodes;
+    private final AtomicInteger nextLiveNodeIndex;
 
     private static Logger logger = Logger.getLogger(AlternatorLiveNodes.class.getName());
 
@@ -51,9 +52,9 @@ public class AlternatorLiveNodes extends Thread {
     // they also start the thread after creating the object.
     private AlternatorLiveNodes(String alternatorScheme, List<String> liveNodes, int alternatorPort) {
         this.alternatorScheme = alternatorScheme;
-        this.liveNodes = liveNodes;
+        this.liveNodes = new AtomicReference<>(new ArrayList<>(liveNodes));
         this.alternatorPort = alternatorPort;
-        this.nextLiveNodeIndex = 0;
+        this.nextLiveNodeIndex = new AtomicInteger(0);
     }
 
     public static AlternatorLiveNodes create(String scheme, List<String> hosts, int port) {
@@ -69,10 +70,10 @@ public class AlternatorLiveNodes extends Thread {
         return create(uri.getScheme(), Arrays.asList(uri.getHost()), uri.getPort());
     }
 
-    public synchronized String nextNode() {
-        String node = liveNodes.get(nextLiveNodeIndex);
+    public String nextNode() {
+        List<String> nodes = liveNodes.get();
+        String node = nodes.get(Math.abs(nextLiveNodeIndex.getAndIncrement() % nodes.size()));
         logger.log(Level.FINE, "Using node " + node);
-        nextLiveNodeIndex = (nextLiveNodeIndex + 1) % liveNodes.size();
         return node;
     }
 
@@ -104,7 +105,7 @@ public class AlternatorLiveNodes extends Thread {
     }
 
     private void updateLiveNodes() {
-        List<String> newHosts = new ArrayList<String>();
+        List<String> newHosts = new ArrayList<>();
         URL url = nextAsURL("/localnodes");
         try {
             // Note that despite this being called HttpURLConnection, it actually
@@ -128,11 +129,8 @@ public class AlternatorLiveNodes extends Thread {
             logger.log(Level.FINE, "Request failed: " + url, e);
         }
         if (!newHosts.isEmpty()) {
-            synchronized(this) {
-                this.liveNodes = newHosts;
-                this.nextLiveNodeIndex = 0;
-            }
-            logger.log(Level.FINE, "Updated hosts to " + this.liveNodes.toString());
+            liveNodes.set(newHosts);
+            logger.log(Level.FINE, "Updated hosts to " + liveNodes);
         }
     }
 }

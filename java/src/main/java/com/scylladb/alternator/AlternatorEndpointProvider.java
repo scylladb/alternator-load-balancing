@@ -15,7 +15,13 @@ import software.amazon.awssdk.services.dynamodb.endpoints.DynamoDbEndpointProvid
 public class AlternatorEndpointProvider implements DynamoDbEndpointProvider {
 	AlternatorLiveNodes liveNodes;
 	public AlternatorEndpointProvider(URI seedURI) {
-		liveNodes = AlternatorLiveNodes.create(seedURI);
+		liveNodes = new AlternatorLiveNodes(seedURI);
+		try {
+			liveNodes.validate();
+		} catch (AlternatorLiveNodes.ValidationError e) {
+			throw new RuntimeException(e);
+		}
+		liveNodes.start();
 	}
 
 	@Override

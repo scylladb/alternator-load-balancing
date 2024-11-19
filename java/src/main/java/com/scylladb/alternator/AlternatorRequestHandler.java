@@ -1,7 +1,5 @@
 package com.scylladb.alternator;
 
-import com.scylladb.alternator.AlternatorLiveNodes;
-
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.Request;
 
@@ -13,9 +11,16 @@ import java.net.URI;
  */
 public class AlternatorRequestHandler extends RequestHandler2 {
     AlternatorLiveNodes liveNodes;
-    public AlternatorRequestHandler(URI seedURI) {
-        liveNodes = AlternatorLiveNodes.create(seedURI);
+    public AlternatorRequestHandler(URI seedURI){
+        liveNodes = new AlternatorLiveNodes(seedURI);
+        try {
+            liveNodes.validate();
+        } catch (AlternatorLiveNodes.ValidationError e) {
+            throw new RuntimeException(e);
+        }
+        liveNodes.start();
     }
+
     @Override
     public void beforeRequest(Request<?> request) {
         request.setEndpoint(liveNodes.nextAsURI());

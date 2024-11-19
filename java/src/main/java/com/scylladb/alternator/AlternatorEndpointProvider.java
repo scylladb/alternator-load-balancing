@@ -20,7 +20,13 @@ public class AlternatorEndpointProvider implements DynamoDbEndpointProvider {
 
 	public AlternatorEndpointProvider(URI seedURI) {
 		futureCache = new ConcurrentHashMap<>();
-		liveNodes = AlternatorLiveNodes.create(seedURI);
+		liveNodes = new AlternatorLiveNodes(seedURI);
+		try {
+			liveNodes.validate();
+		} catch (AlternatorLiveNodes.ValidationError e) {
+			throw new RuntimeException(e);
+		}
+		liveNodes.start();
 	}
 
 	@Override

@@ -1,2 +1,15 @@
 .idea
+**/.idea
 java/target
+
+csharp/**/*.suo
+csharp/**/*.user
+csharp/**/*.sln.docstates
+csharp/**/[bB]in
+csharp/**/[oO]bj
+csharp/**/release
+csharp/**/*.nupkg
+csharp/**/packages/*
+csharp/**/[Tt]est[Rr]esult*/
+csharp/**/[Bb]uild[Ll]og.*
+

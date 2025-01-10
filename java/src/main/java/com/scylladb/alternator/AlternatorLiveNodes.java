@@ -302,7 +302,7 @@ public class AlternatorLiveNodes extends Thread {
   }
 
   /**
-   * Returns true if remote node supports /localnodes?rack=\<\>\&dc=\<datacenter\>. If it can't
+   * Returns true if remote node supports /localnodes?rack=`rack`&amp;dc=`datacenter`. If it can't
    * conclude by any reason it throws {@link
    * com.scylladb.alternator.AlternatorLiveNodes.FailedToCheck}
    *

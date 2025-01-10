@@ -3,7 +3,11 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'java/*'
   pull_request:
+    paths:
+      - 'java/*'
 
 jobs:
   compile:
@@ -19,5 +23,9 @@ jobs:
           distribution: temurin
           java-version: 8
           cache: maven
+
       - name: Compile Tests
-        run: mvn test-compile
+        run: make compile compile-test
+
+      - name: Validate
+        run: make verify

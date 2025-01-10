@@ -17,14 +17,6 @@ namespace ScyllaDB.Alternator
     [TestFixture]
     public class Test
     {
-        private static TestContext TestContextInstance { get; set; }
-        
-        [Test]
-        public void Test1()
-        {
-            throw new NotImplementedException();
-        }
-        
         // And this is the Alternator-specific way to get a DynamoDB connection
         // which load-balances several Scylla nodes.
         private static AmazonDynamoDBClient GetAlternatorClient(Uri uri, AWSCredentials credentials, string datacenter, string rack)
@@ -44,7 +36,7 @@ namespace ScyllaDB.Alternator
         private string Endpoint = TestContext.Parameters.Get("Endpoint", "http://127.0.0.1:8080");
 
         [Test]
-        public async Task runTest([Values("","dc1")] string datacenter, [Values("", "rack1")]string rack)
+        public async Task BasicTableTest([Values("","dc1")] string datacenter, [Values("", "rack1")]string rack)
         {
             DisableCertificateChecks();
 

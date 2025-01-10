@@ -117,7 +117,7 @@ namespace ScyllaDB.Alternator
             }
         }
 
-        private void Validate()
+        public void Validate()
         {
             try
             {

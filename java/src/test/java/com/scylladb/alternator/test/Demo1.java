@@ -135,10 +135,10 @@ public class Demo1 {
     AWSCredentialsProvider myCredentials =
         new AWSStaticCredentialsProvider(new BasicAWSCredentials(user, pass));
     DynamoDB ddb;
-    if (disableLoadBalancing) {
-      ddb = getTraditionalClient(URI.create(endpoint), myCredentials);
-    } else {
+    if (disableLoadBalancing == null || !disableLoadBalancing) {
       ddb = getAlternatorClient(URI.create(endpoint), myCredentials, datacenter, rack);
+    } else {
+      ddb = getTraditionalClient(URI.create(endpoint), myCredentials);
     }
 
     Random rand = new Random();

@@ -144,10 +144,10 @@ public class Demo2 {
     AwsCredentialsProvider myCredentials =
         StaticCredentialsProvider.create(AwsBasicCredentials.create(user, pass));
     DynamoDbClient ddb;
-    if (disableLoadBalancing) {
-      ddb = getTraditionalClient(URI.create(endpoint), myCredentials);
-    } else {
+    if (disableLoadBalancing == null || !disableLoadBalancing) {
       ddb = getAlternatorClient(URI.create(endpoint), myCredentials, datacenter, rack);
+    } else {
+      ddb = getTraditionalClient(URI.create(endpoint), myCredentials);
     }
 
     // run DescribeEndpoints several times

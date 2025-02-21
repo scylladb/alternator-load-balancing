@@ -207,6 +207,12 @@ class AlternatorLB:
         if current_resolver.__class__ != EndpointRulesetResolver:
             raise Exception("client._ruleset_resolver has unexpected class.")
 
+        try:
+            if not client.meta.config.region_name:
+                raise ValueError("client can't work properly with empty region name")
+        except AttributeError:
+            raise Exception("client has no meta.config.region_name, looks like it's not a botocore DynamoDB client.")
+
         orig = current_resolver.construct_endpoint
 
         def construct_endpoint(

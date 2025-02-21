@@ -17,61 +17,106 @@ allow a mostly-unmodified application which is only aware of one
 
 Our intention is _not_ to fork the existing AWS client library for Go.
 Rather, our intention is to provide a small library which tacks on to
-the existing "aws-sdk-go" library which the application is already using,
+the existing `aws-sdk-go-v2` library which the application is already using,
 and makes it do the right thing for Alternator.
 
-## The `alternator_lb.go` library
+## The library
 
-The `AlternatorNodes` class defined in `alternator_lb.go` can be used to
+The `AlternatorLB` class defined in `alternator_lb.go` can be used to
 easily change any application using `aws-sdk-go-v2` from using Amazon DynamoDB
 to use Alternator: While DynamoDB only has one "endpoint", this class helps
 us balance the requests between all the nodes in the Alternator cluster.
 
 ## Using the library
 
-To use this class, simply replace the code which creates a AWS SDK
-`aws.Config`
-Instead of the usual way of creating a `Config`, like:
+You create a regular `dynamodb.Client` client by one of the methods listed below and
+the rest of the application can use this dynamodb client normally
+this `db` object is thread-safe and can be used from multiple threads.
 
-```golang
-cfg, err := config.LoadDefaultConfig(ctx)
-```
+This client will send requests to an Alternator nodes, instead of AWS DynamoDB.
 
-Use an `AlternatorNodes` object, which keeps track of the live Alternator
-nodes, to create a session with the following commands:
-
-```golang
-alternatorNodes := alternatorlb.NewAlternatorNodes("http", 8000, "127.0.0.1")
-alternatorNodes.Start(ctx, 1*time.Second)
-defer alternatorNodes.Stop()
-
-cfg := alternatorNodes.Config("dog.scylladb.com", "alternator", "secret_pass")
-```
-
-Then, the rest of the applicaton can use this config normally - call
-db := dynamodb.NewFromConfig(cfg)`and then send DynamoDB requests to db; As
-usual, this`db` object is thread-safe and can be used from multiple
-threads.
-
-The parameters to `NewAlternatorNodes()` indicate a list of known
-Alternator nodes, and their common scheme (http or https) and port.
-This list can contain one or more nodes - we then periodically contact
-these nodes to fetch the full list of nodes using Alternator's
-`/localnodes` request. In the `Config()` method, one needs to pick a
-"fake domain" which doesn't really mean anything (except it will be used as
-the Host header, and be returned by the DescribeEndpoints request), and
-the key and secret key for authentication to Alternator.
-
-Every request performed on this new session will pick a different live
+Every request performed on patched session will pick a different live
 Alternator node to send it to. Despite us sending different requests
 to different nodes, Go will keep these connections cached and reuse them
 when we send another request to the same node.
 
-(TODO: figure out the limitations of this caching. Where is it documented?).
+### Rack and Datacenter awareness
+
+You can configure load balancer to target particular datacenter or rack via `WithRack` and `WithDatacenter` options, like so:
+```golang
+    lb, err := alb.NewAlternatorLB([]string{"x.x.x.x"}, alb.WithRack("someRack"), alb.WithDatacenter("someDc1"))
+```
+
+Additionally, you can check if alternator cluster know targeted rack/datacenter:
+```golang
+	if err := lb.CheckIfRackAndDatacenterSetCorrectly(); err != nil {
+		return fmt.Errorf("CheckIfRackAndDatacenterSetCorrectly() unexpectedly returned an error: %v", err)
+	}
+```
+
+To check if cluster support datacenter/rack feature supported you can call `CheckIfRackDatacenterFeatureIsSupported`:
+```golang
+    supported, err := lb.CheckIfRackDatacenterFeatureIsSupported()
+	if err != nil {
+		return fmt.Errorf("failed to check if rack/dc feature is supported: %v", err)
+	}
+	if !supported {
+        return fmt.Errorf("dc/rack feature is not supporte")	
+    }
+```
+
+### Spawn `dynamodb.DynamoDB`
+
+```golang
+import (
+    "fmt"
+    alb "alternator_loadbalancing_v2"
+)
+
+func main() {
+    lb, err := alternator_loadbalancing_v2.NewAlternatorLB([]string{"x.x.x.x"}, )
+    if err != nil {
+        panic(fmt.Sprintf("Error creating alternator load balancer: %v", err))
+    }
+    ddb := lb.NewDynamoDB("key", "secret")
+    if err != nil {
+        panic(fmt.Sprintf("Error creating dynamoDB client: %v", err))
+    }
+    
+    ctx := context.Background()
+    _, _ = ddb.DeleteTable(ctx, &dynamodb.DeleteTableInput{
+        TableName: aws.String(tableName),
+    })
+}
+```
+
+### Patch existing `session.Session`
+
+```golang
+import (
+    "fmt"
+    alb "alternator_loadbalancing_v2"
+)
+
+func main() {
+    lb, err := alternator_loadbalancing.NewAlternatorLB([]string{"x.x.x.x"}, )
+    if err != nil {
+        t.Fatalf("Error creating alternator load balancer: %v", err)
+    }
+
+	s, err := session.NewSession();
+    if err != nil {
+        panic(fmt.Sprintf("Error creating AWS session: %v", err))
+    }
+
+    ddb := dynamodb.NewFromConfig(config.Config{}, lb.WithEndpointResolverV2())
+    ctx := context.Background()
+    _, _ = ddb.DeleteTable(ctx, &dynamodb.DeleteTableInput{
+        TableName: aws.String(tableName),
+    })
+
+```
 
 ## Example
 
-This directory also contains one trivial example of using `alternator_lb.go`,
-[example.go](example.go). This example opens a config using `NewAlternatorNodes()`, as
-described above, and then uses it 20 times in a loop - and we'll see
-that every request will be sent to a different node.
+You can find examples in `[alternator_lb_test.go](alternator_lb_test.go)`

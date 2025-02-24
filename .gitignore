@@ -1,5 +1,7 @@
 .idea
 **/.idea
+**/__pycache__
+**/.venv
 java/target
 
 csharp/**/*.suo

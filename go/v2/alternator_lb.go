@@ -52,12 +52,6 @@ func (lb *AlternatorLB) Config(key string, secret string) aws.Config {
 		// The third credential below, the session token, is only used for
 		// temporary credentials, and is not supported by Alternator anyway.
 		Credentials: credentials.NewStaticCredentialsProvider(key, secret, ""),
-
-		//APIOptions: []func(*middleware.Stack) error{
-		//	func(m *middleware.Stack) error {
-		//		return m.Finalize.Add(lb.loadBalancerMiddleware(), middleware.Before)
-		//	},
-		//},
 	}
 }
 

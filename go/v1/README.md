@@ -5,7 +5,7 @@
 As explained in the [toplevel README](../../README.md), DynamoDB applications
 are usually aware of a _single endpoint_, a single URL to which they
 connect - e.g., `http://dynamodb.us-east-1.amazonaws.com`. But Alternator
-is distributed over a cluster of nodes and we would like the application to
+is distributed over a cluster of nodes, and we would like the application to
 send requests to all these nodes - not just to one. This is important for two
 reasons: **high availability** (the failure of a single Alternator node should
 not prevent the client from proceeding) and **load balancing** over all
@@ -13,7 +13,7 @@ Alternator nodes.
 
 One of the ways to do this is to provide a modified library, which will
 allow a mostly-unmodified application which is only aware of one
-"enpoint URL" to send its requests to many different Alternator nodes.
+"endpoint URL" to send its requests to many different Alternator nodes.
 
 Our intention is _not_ to fork the existing AWS client library for Go.
 Rather, our intention is to provide a small library which tacks on to

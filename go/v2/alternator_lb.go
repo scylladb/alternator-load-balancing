@@ -2,6 +2,7 @@ package alternator_loadbalancing_v2
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -26,6 +27,7 @@ type Config struct {
 	AccessKeyID           string
 	SecretAccessKey       string
 	HTTPClient            *http.Client
+	ClientCertificate     *aln.CertSource
 }
 
 type Option func(config *Config)
@@ -116,6 +118,18 @@ func WithHTTPClient(httpClient *http.Client) Option {
 	}
 }
 
+func WithClientCertificateFile(certFile, keyFile string) Option {
+	return func(config *Config) {
+		config.ClientCertificate = aln.NewFileCertificate(certFile, keyFile)
+	}
+}
+
+func WithClientCertificate(certificate tls.Certificate) Option {
+	return func(config *Config) {
+		config.ClientCertificate = aln.NewCertificate(certificate)
+	}
+}
+
 type AlternatorLB struct {
 	nodes *aln.AlternatorLiveNodes
 	cfg   Config
@@ -149,6 +163,12 @@ func (lb *AlternatorLB) AWSConfig() aws.Config {
 
 	if lb.cfg.HTTPClient != nil {
 		cfg.HTTPClient = lb.cfg.HTTPClient
+	} else {
+		defaultTransport := http.DefaultTransport.(*http.Transport).Clone()
+		if lb.cfg.ClientCertificate != nil {
+			lb.cfg.ClientCertificate.PatchHTTPTransport(defaultTransport)
+		}
+		cfg.HTTPClient = &http.Client{Transport: defaultTransport}
 	}
 
 	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {
@@ -156,7 +176,7 @@ func (lb *AlternatorLB) AWSConfig() aws.Config {
 		// temporary credentials, and is not supported by Alternator anyway.
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(lb.cfg.AccessKeyID, lb.cfg.SecretAccessKey, "")
 	}
-	
+
 	return cfg
 }
 

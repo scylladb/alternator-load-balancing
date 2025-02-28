@@ -81,7 +81,7 @@ func main() {
     if err != nil {
         panic(fmt.Sprintf("Error creating alternator load balancer: %v", err))
     }
-    ddb, err := lb.NewDynamoDB("key", "secret")
+    ddb, err := lb.WithCredentials("whatever", "secret").NewDynamoDB()
     if err != nil {
         panic(fmt.Sprintf("Error creating dynamodb client: %v", err))
     }
@@ -105,7 +105,7 @@ func main() {
     if err != nil {
         panic(fmt.Sprintf("Error creating alternator load balancer: %v", err))
     }
-    ddb, err := lb.NewDynamoDB("key", "secret")
+    ddb, err := lb.WithCredentials("whatever", "secret").NewDynamoDB()
     if err != nil {
         panic(fmt.Sprintf("Error creating dynamodb client: %v", err))
     }

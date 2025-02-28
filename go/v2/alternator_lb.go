@@ -3,6 +3,7 @@ package alternator_loadbalancing_v2
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -24,6 +25,7 @@ type Config struct {
 	NodesListUpdatePeriod time.Duration
 	AccessKeyID           string
 	SecretAccessKey       string
+	HTTPClient            *http.Client
 }
 
 type Option func(config *Config)
@@ -56,6 +58,10 @@ func (c *Config) ToALNConfig() []aln.Option {
 
 	if c.Datacenter != "" {
 		out = append(out, aln.WithDatacenter(c.Datacenter))
+	}
+
+	if c.HTTPClient != nil {
+		out = append(out, aln.WithHTTPClient(c.HTTPClient))
 	}
 
 	return out
@@ -104,6 +110,12 @@ func WithCredentials(accessKeyID string, secretAccessKey string) Option {
 	}
 }
 
+func WithHTTPClient(httpClient *http.Client) Option {
+	return func(config *Config) {
+		config.HTTPClient = httpClient
+	}
+}
+
 type AlternatorLB struct {
 	nodes *aln.AlternatorLiveNodes
 	cfg   Config
@@ -135,11 +147,16 @@ func (lb *AlternatorLB) AWSConfig() aws.Config {
 		BaseEndpoint: aws.String(fmt.Sprintf("%s://%s:%d", lb.cfg.Scheme, "dynamodb.fake.alterntor.cluster.node", lb.cfg.Port)),
 	}
 
+	if lb.cfg.HTTPClient != nil {
+		cfg.HTTPClient = lb.cfg.HTTPClient
+	}
+
 	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {
 		// The third credential below, the session token, is only used for
 		// temporary credentials, and is not supported by Alternator anyway.
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(lb.cfg.AccessKeyID, lb.cfg.SecretAccessKey, "")
 	}
+	
 	return cfg
 }
 

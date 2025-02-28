@@ -3,6 +3,7 @@ package alternator_loadbalancing
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/defaults"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ type Config struct {
 	NodesListUpdatePeriod time.Duration
 	AccessKeyID           string
 	SecretAccessKey       string
+	HTTPClient            *http.Client
 }
 
 type Option func(config *Config)
@@ -57,6 +59,10 @@ func (c *Config) ToALNConfig() []aln.Option {
 
 	if c.Datacenter != "" {
 		out = append(out, aln.WithDatacenter(c.Datacenter))
+	}
+
+	if c.HTTPClient != nil {
+		out = append(out, aln.WithHTTPClient(c.HTTPClient))
 	}
 
 	return out
@@ -102,6 +108,12 @@ func WithCredentials(accessKeyID string, secretAccessKey string) Option {
 	return func(config *Config) {
 		config.AccessKeyID = accessKeyID
 		config.SecretAccessKey = secretAccessKey
+	}
+}
+
+func WithHTTPClient(httpClient *http.Client) Option {
+	return func(config *Config) {
+		config.HTTPClient = httpClient
 	}
 }
 
@@ -159,10 +171,15 @@ func (lb *AlternatorLB) AWSConfig() aws.Config {
 		// to one region to be forward by an attacker to a different region.
 		// But Alternator doesn't check it. It can be anything.
 		Region: aws.String(lb.cfg.AWSRegion),
+	}
+
+	if lb.cfg.HTTPClient != nil {
+		cfg.HTTPClient = lb.cfg.HTTPClient
+	}
+
+	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {
 		// The third credential below, the session token, is only used for
 		// temporary credentials, and is not supported by Alternator anyway.
-	}
-	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {
 		cfg.Credentials = credentials.NewStaticCredentials(lb.cfg.AccessKeyID, lb.cfg.SecretAccessKey, "")
 	}
 

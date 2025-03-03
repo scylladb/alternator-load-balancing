@@ -29,6 +29,7 @@ type Config struct {
 	SecretAccessKey       string
 	HTTPClient            *http.Client
 	ClientCertificate     *aln.CertSource
+	ReduceHeaders         bool
 }
 
 type Option func(config *Config)
@@ -131,6 +132,12 @@ func WithClientCertificate(certificate tls.Certificate) Option {
 	}
 }
 
+func WithReduceHeaders() Option {
+	return func(config *Config) {
+		config.ReduceHeaders = true
+	}
+}
+
 type AlternatorLB struct {
 	nodes *aln.AlternatorLiveNodes
 	cfg   Config
@@ -190,6 +197,26 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 			return aws.Config{}, fmt.Errorf("failed patch custom HTTP transport (%T) for client certificate", httpClient.Transport)
 		}
 		lb.cfg.ClientCertificate.PatchHTTPTransport(transport)
+	}
+
+	if lb.cfg.ReduceHeaders {
+		httpClient, ok := cfg.HTTPClient.(*http.Client)
+		if !ok {
+			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for client certificate", cfg.HTTPClient)
+		}
+		if httpClient.Transport == nil {
+			httpClient.Transport = http.DefaultTransport
+		}
+		transport, ok := httpClient.Transport.(*http.Transport)
+		if !ok {
+			return aws.Config{}, fmt.Errorf("failed patch custom HTTP transport (%T) for client certificate", httpClient.Transport)
+		}
+
+		allowedHeaders := []string{"Host", "X-Amz-Target", "Content-Length"}
+		if lb.cfg.AccessKeyID != "" {
+			allowedHeaders = append(allowedHeaders, "Authorization")
+		}
+		httpClient.Transport = aln.NewHeaderWhiteListing(transport, allowedHeaders...)
 	}
 
 	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {

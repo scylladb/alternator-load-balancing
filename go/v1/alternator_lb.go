@@ -178,7 +178,7 @@ func (lb *AlternatorLB) PatchSession(s *session.Session) {
 }
 
 // AWSConfig produces a conf for the AWS SDK that will integrate the alternator loadbalancing with the AWS SDK.
-func (lb *AlternatorLB) AWSConfig() aws.Config {
+func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 	cfg := aws.Config{
 		Endpoint: aws.String(fmt.Sprintf("%s://%s:%d", lb.cfg.Scheme, "dynamodb.fake.alterntor.cluster.node", lb.cfg.Port)),
 		// Region is used in the signature algorithm so prevent request sent
@@ -190,11 +190,19 @@ func (lb *AlternatorLB) AWSConfig() aws.Config {
 	if lb.cfg.HTTPClient != nil {
 		cfg.HTTPClient = lb.cfg.HTTPClient
 	} else {
-		defaultTransport := http.DefaultTransport.(*http.Transport).Clone()
-		if lb.cfg.ClientCertificate != nil {
-			lb.cfg.ClientCertificate.PatchHTTPTransport(defaultTransport)
+		cfg.HTTPClient = &http.Client{}
+	}
+
+	if lb.cfg.ClientCertificate != nil {
+		if cfg.HTTPClient.Transport == nil {
+			cfg.HTTPClient.Transport = http.DefaultTransport
 		}
-		cfg.HTTPClient = &http.Client{Transport: defaultTransport}
+		transport, ok := cfg.HTTPClient.Transport.(*http.Transport)
+		if !ok {
+			lb.cfg.ClientCertificate.PatchHTTPTransport(transport)
+		} else {
+			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for client certificate", cfg.HTTPClient)
+		}
 	}
 
 	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {
@@ -203,7 +211,7 @@ func (lb *AlternatorLB) AWSConfig() aws.Config {
 		cfg.Credentials = credentials.NewStaticCredentials(lb.cfg.AccessKeyID, lb.cfg.SecretAccessKey, "")
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 func (lb *AlternatorLB) NewAWSSession() (*session.Session, error) {
@@ -217,9 +225,14 @@ func (lb *AlternatorLB) NewAWSSession() (*session.Session, error) {
 		}
 	})
 
+	cfg, err := lb.AWSConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	return session.NewSessionWithOptions(session.Options{
 		Handlers: handlers,
-		Config:   lb.AWSConfig(),
+		Config:   cfg,
 	})
 }
 

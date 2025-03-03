@@ -74,7 +74,7 @@ func TestDynamoDBOperations(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error creating alternator load balancer: %v", err)
 	}
-	ddb := lb.WithCredentials("whatever", "secret").NewDynamoDB()
+	ddb, err := lb.WithCredentials("whatever", "secret").NewDynamoDB()
 	if err != nil {
 		t.Errorf("Error creating dynamoDB client: %v", err)
 	}

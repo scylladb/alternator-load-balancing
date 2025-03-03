@@ -3,6 +3,7 @@ package alternator_loadbalancing_v2
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -152,7 +153,7 @@ func NewAlternatorLB(initialNodes []string, options ...Option) (*AlternatorLB, e
 }
 
 // AWSConfig produces a conf for the AWS SDK that will integrate the alternator loadbalancing with the AWS SDK.
-func (lb *AlternatorLB) AWSConfig() aws.Config {
+func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 	cfg := aws.Config{
 		// Region is used in the signature algorithm so prevent request sent
 		// to one region to be forward by an attacker to a different region.
@@ -165,10 +166,30 @@ func (lb *AlternatorLB) AWSConfig() aws.Config {
 		cfg.HTTPClient = lb.cfg.HTTPClient
 	} else {
 		defaultTransport := http.DefaultTransport.(*http.Transport).Clone()
-		if lb.cfg.ClientCertificate != nil {
-			lb.cfg.ClientCertificate.PatchHTTPTransport(defaultTransport)
+		defaultTransport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+				return nil
+			},
 		}
-		cfg.HTTPClient = &http.Client{Transport: defaultTransport}
+		cfg.HTTPClient = &http.Client{
+			Transport: defaultTransport,
+		}
+	}
+
+	if lb.cfg.ClientCertificate != nil {
+		httpClient, ok := cfg.HTTPClient.(*http.Client)
+		if !ok {
+			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for client certificate", cfg.HTTPClient)
+		}
+		if httpClient.Transport == nil {
+			httpClient.Transport = http.DefaultTransport
+		}
+		transport, ok := httpClient.Transport.(*http.Transport)
+		if !ok {
+			return aws.Config{}, fmt.Errorf("failed patch custom HTTP transport (%T) for client certificate", httpClient.Transport)
+		}
+		lb.cfg.ClientCertificate.PatchHTTPTransport(transport)
 	}
 
 	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {
@@ -177,7 +198,7 @@ func (lb *AlternatorLB) AWSConfig() aws.Config {
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(lb.cfg.AccessKeyID, lb.cfg.SecretAccessKey, "")
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 // WithCredentials creates clone of AlternatorLB with altered alternator credentials
@@ -216,8 +237,12 @@ func (lb *AlternatorLB) EndpointResolverV2() dynamodb.EndpointResolverV2 {
 	return &EndpointResolverV2{lb: lb}
 }
 
-func (lb *AlternatorLB) NewDynamoDB() *dynamodb.Client {
-	return dynamodb.NewFromConfig(lb.AWSConfig(), dynamodb.WithEndpointResolverV2(lb.EndpointResolverV2()))
+func (lb *AlternatorLB) NewDynamoDB() (*dynamodb.Client, error) {
+	cfg, err := lb.AWSConfig()
+	if err != nil {
+		return nil, err
+	}
+	return dynamodb.NewFromConfig(cfg, dynamodb.WithEndpointResolverV2(lb.EndpointResolverV2())), nil
 }
 
 type EndpointResolverV2 struct {

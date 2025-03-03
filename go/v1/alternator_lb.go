@@ -32,6 +32,7 @@ var (
 	WithClientCertificateFile        = common.WithClientCertificateFile
 	WithClientCertificate            = common.WithClientCertificate
 	WithIgnoreServerCertificateError = common.WithIgnoreServerCertificateError
+	WithOptimizeHeaders              = common.WithOptimizeHeaders
 )
 
 type AlternatorLB struct {
@@ -113,6 +114,14 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 		} else {
 			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for client certificate", cfg.HTTPClient)
 		}
+	}
+
+	if lb.cfg.OptimizeHeaders {
+		allowedHeaders := []string{"Host", "X-Amz-Target", "Content-Length", "Accept-Encoding"}
+		if lb.cfg.AccessKeyID != "" {
+			allowedHeaders = append(allowedHeaders, "Authorization", "X-Amz-Date")
+		}
+		cfg.HTTPClient.Transport = common.NewHeaderWhiteListing(cfg.HTTPClient.Transport, allowedHeaders...)
 	}
 
 	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {

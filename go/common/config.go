@@ -120,3 +120,9 @@ func WithClientCertificate(certificate tls.Certificate) Option {
 		config.ClientCertificate = NewCertificate(certificate)
 	}
 }
+
+func WithIgnoreServerCertificateError() Option {
+	return func(config *Config) {
+		config.IgnoreServerCertificateError = true
+	}
+}

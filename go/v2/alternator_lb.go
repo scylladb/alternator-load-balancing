@@ -19,16 +19,17 @@ import (
 type Option = common.Option
 
 var (
-	WithScheme                = common.WithScheme
-	WithPort                  = common.WithPort
-	WithRack                  = common.WithRack
-	WithDatacenter            = common.WithDatacenter
-	WithAWSRegion             = common.WithAWSRegion
-	WithNodesListUpdatePeriod = common.WithNodesListUpdatePeriod
-	WithCredentials           = common.WithCredentials
-	WithHTTPClient            = common.WithHTTPClient
-	WithClientCertificateFile = common.WithClientCertificateFile
-	WithClientCertificate     = common.WithClientCertificate
+	WithScheme                       = common.WithScheme
+	WithPort                         = common.WithPort
+	WithRack                         = common.WithRack
+	WithDatacenter                   = common.WithDatacenter
+	WithAWSRegion                    = common.WithAWSRegion
+	WithNodesListUpdatePeriod        = common.WithNodesListUpdatePeriod
+	WithCredentials                  = common.WithCredentials
+	WithHTTPClient                   = common.WithHTTPClient
+	WithClientCertificateFile        = common.WithClientCertificateFile
+	WithClientCertificate            = common.WithClientCertificate
+	WithIgnoreServerCertificateError = common.WithIgnoreServerCertificateError
 )
 
 type AlternatorLB struct {

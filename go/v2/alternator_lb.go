@@ -30,6 +30,7 @@ var (
 	WithClientCertificateFile        = common.WithClientCertificateFile
 	WithClientCertificate            = common.WithClientCertificate
 	WithIgnoreServerCertificateError = common.WithIgnoreServerCertificateError
+	WithOptimizeHeaders              = common.WithOptimizeHeaders
 )
 
 type AlternatorLB struct {
@@ -105,6 +106,26 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 			return aws.Config{}, fmt.Errorf("failed patch custom HTTP transport (%T) for client certificate", httpClient.Transport)
 		}
 		lb.cfg.ClientCertificate.PatchHTTPTransport(transport)
+	}
+
+	if lb.cfg.OptimizeHeaders {
+		httpClient, ok := cfg.HTTPClient.(*http.Client)
+		if !ok {
+			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for http headers optimization", cfg.HTTPClient)
+		}
+		if httpClient.Transport == nil {
+			httpClient.Transport = http.DefaultTransport
+		}
+		transport, ok := httpClient.Transport.(*http.Transport)
+		if !ok {
+			return aws.Config{}, fmt.Errorf("failed patch custom HTTP transport (%T) for http headers optimization", httpClient.Transport)
+		}
+
+		allowedHeaders := []string{"Host", "X-Amz-Target", "Content-Length", "Accept-Encoding"}
+		if lb.cfg.AccessKeyID != "" {
+			allowedHeaders = append(allowedHeaders, "Authorization", "X-Amz-Date")
+		}
+		httpClient.Transport = common.NewHeaderWhiteListing(transport, allowedHeaders...)
 	}
 
 	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {

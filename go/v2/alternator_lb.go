@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -29,6 +30,8 @@ type Config struct {
 	SecretAccessKey       string
 	HTTPClient            *http.Client
 	ClientCertificate     *aln.CertSource
+	// Makes it ignore server certificate errors
+	IgnoreServerCertificateError bool
 }
 
 type Option func(config *Config)
@@ -131,6 +134,12 @@ func WithClientCertificate(certificate tls.Certificate) Option {
 	}
 }
 
+func WithIgnoreServerCertificateErrors() Option {
+	return func(config *Config) {
+		config.IgnoreServerCertificateError = true
+	}
+}
+
 type AlternatorLB struct {
 	nodes *aln.AlternatorLiveNodes
 	cfg   Config
@@ -165,16 +174,30 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 	if lb.cfg.HTTPClient != nil {
 		cfg.HTTPClient = lb.cfg.HTTPClient
 	} else {
-		defaultTransport := http.DefaultTransport.(*http.Transport).Clone()
-		defaultTransport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
-			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-				return nil
-			},
+		cfg.HTTPClient = http.DefaultClient
+	}
+
+	if lb.cfg.IgnoreServerCertificateError {
+		httpClient, ok := cfg.HTTPClient.(*http.Client)
+		if !ok {
+			return cfg, errors.New("failed to patch http client for ignore server certificate")
 		}
-		cfg.HTTPClient = &http.Client{
-			Transport: defaultTransport,
+		if httpClient.Transport == nil {
+			httpClient.Transport = http.DefaultTransport
 		}
+		httpTransport, ok := httpClient.Transport.(*http.Transport)
+		if !ok {
+			return cfg, errors.New("failed to patch http transport for ignore server certificate")
+		}
+		if httpTransport.TLSClientConfig == nil {
+			httpTransport.TLSClientConfig = &tls.Config{}
+		}
+
+		httpTransport.TLSClientConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			return nil
+		}
+
+		httpTransport.TLSClientConfig.InsecureSkipVerify = true
 	}
 
 	if lb.cfg.ClientCertificate != nil {
@@ -233,7 +256,7 @@ func (lb *AlternatorLB) CheckIfRackDatacenterFeatureIsSupported() (bool, error) 
 	return lb.nodes.CheckIfRackDatacenterFeatureIsSupported()
 }
 
-func (lb *AlternatorLB) EndpointResolverV2() dynamodb.EndpointResolverV2 {
+func (lb *AlternatorLB) endpointResolverV2() dynamodb.EndpointResolverV2 {
 	return &EndpointResolverV2{lb: lb}
 }
 
@@ -242,7 +265,7 @@ func (lb *AlternatorLB) NewDynamoDB() (*dynamodb.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return dynamodb.NewFromConfig(cfg, dynamodb.WithEndpointResolverV2(lb.EndpointResolverV2())), nil
+	return dynamodb.NewFromConfig(cfg, dynamodb.WithEndpointResolverV2(lb.endpointResolverV2())), nil
 }
 
 type EndpointResolverV2 struct {

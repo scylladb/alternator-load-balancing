@@ -89,36 +89,6 @@ func main() {
 }
 ```
 
-### Patch existing `session.Session`
-
-```golang
-import (
-    "fmt"
-    alb "alternator_loadbalancing"
-    
-    "github.com/aws/aws-sdk-go/aws"
-    "github.com/aws/aws-sdk-go/service/dynamodb"
-)
-
-func main() {
-    lb, err := alb.NewAlternatorLB([]string{"x.x.x.x"}, alb.WithPort(9999))
-    if err != nil {
-        panic(fmt.Sprintf("Error creating alternator load balancer: %v", err))
-    }
-    ddb, err := lb.WithCredentials("whatever", "secret").NewDynamoDB()
-    if err != nil {
-        panic(fmt.Sprintf("Error creating dynamodb client: %v", err))
-    }
-    s, err := session.NewSession();
-    if err != nil {
-        panic(fmt.Sprintf("Error creating AWS session: %v", err))	
-    }
-    lb.PatchSession(s)
-	ddb := dynamodb.New(s)
-    _, _ = ddb.DeleteTable(...)
-}
-```
-
 ## Example
 
 You can find examples in `[alternator_lb_test.go](alternator_lb_test.go)`

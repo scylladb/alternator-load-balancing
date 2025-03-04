@@ -2,6 +2,8 @@ package alternator_loadbalancing
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	"net/http"
@@ -29,6 +31,8 @@ type Config struct {
 	SecretAccessKey       string
 	HTTPClient            *http.Client
 	ClientCertificate     *aln.CertSource
+	// Makes it ignore server certificate errors
+	IgnoreServerCertificateError bool
 }
 
 type Option func(config *Config)
@@ -165,18 +169,6 @@ func (lb *AlternatorLB) CheckIfRackDatacenterFeatureIsSupported() (bool, error) 
 	return lb.nodes.CheckIfRackDatacenterFeatureIsSupported()
 }
 
-func (lb *AlternatorLB) PatchSession(s *session.Session) {
-	s.Handlers.Send.PushFront(func(r *request.Request) {
-		if strings.Contains(r.HTTPRequest.URL.Host, "dynamodb") {
-			node := lb.NextNode()
-			r.HTTPRequest.Host = node.Host
-			r.HTTPRequest.URL.Host = node.Host
-			r.HTTPRequest.URL.Scheme = node.Scheme
-		}
-	})
-	return
-}
-
 // AWSConfig produces a conf for the AWS SDK that will integrate the alternator loadbalancing with the AWS SDK.
 func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 	cfg := aws.Config{
@@ -190,7 +182,26 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 	if lb.cfg.HTTPClient != nil {
 		cfg.HTTPClient = lb.cfg.HTTPClient
 	} else {
-		cfg.HTTPClient = &http.Client{}
+		cfg.HTTPClient = http.DefaultClient
+	}
+
+	if lb.cfg.IgnoreServerCertificateError {
+		if cfg.HTTPClient.Transport == nil {
+			cfg.HTTPClient.Transport = http.DefaultTransport
+		}
+		httpTransport, ok := cfg.HTTPClient.Transport.(*http.Transport)
+		if !ok {
+			return cfg, errors.New("failed to patch http transport for ignore server certificate")
+		}
+		if httpTransport.TLSClientConfig == nil {
+			httpTransport.TLSClientConfig = &tls.Config{}
+		}
+
+		httpTransport.TLSClientConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			return nil
+		}
+
+		httpTransport.TLSClientConfig.InsecureSkipVerify = true
 	}
 
 	if lb.cfg.ClientCertificate != nil {

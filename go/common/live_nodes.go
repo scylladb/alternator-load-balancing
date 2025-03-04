@@ -1,4 +1,4 @@
-package alternator_live_nodes
+package common
 
 import (
 	"encoding/json"
@@ -13,8 +13,6 @@ import (
 
 const (
 	defaultUpdatePeriod = time.Second * 10
-	defaultScheme       = "http"
-	defaultPort         = 8080
 )
 
 type AlternatorLiveNodes struct {
@@ -22,11 +20,11 @@ type AlternatorLiveNodes struct {
 	initialNodes    []url.URL
 	nextLiveNodeIdx atomic.Uint64
 	updating        atomic.Bool
-	cfg             Config
+	cfg             ALNConfig
 	nextUpdate      atomic.Int64
 }
 
-type Config struct {
+type ALNConfig struct {
 	Scheme       string
 	Port         int
 	Rack         string
@@ -35,8 +33,8 @@ type Config struct {
 	HTTPClient   *http.Client
 }
 
-func NewConfig() Config {
-	return Config{
+func NewALNConfig() ALNConfig {
+	return ALNConfig{
 		Scheme:       defaultScheme,
 		Port:         defaultPort,
 		Rack:         "",
@@ -46,48 +44,50 @@ func NewConfig() Config {
 	}
 }
 
-type Option func(config *Config)
+type ALNOption func(ALNConfig *ALNConfig)
 
-func WithScheme(scheme string) Option {
-	return func(config *Config) {
-		config.Scheme = scheme
+func WithALNScheme(scheme string) ALNOption {
+	return func(ALNConfig *ALNConfig) {
+		ALNConfig.Scheme = scheme
 	}
 }
 
-func WithPort(port int) Option {
-	return func(config *Config) {
-		config.Port = port
+func WithALNPort(port int) ALNOption {
+	return func(ALNConfig *ALNConfig) {
+		ALNConfig.Port = port
 	}
 }
 
-func WithRack(rack string) Option {
-	return func(config *Config) {}
-}
-
-func WithDatacenter(datacenter string) Option {
-	return func(config *Config) {
-		config.Datacenter = datacenter
+func WithALNRack(rack string) ALNOption {
+	return func(ALNConfig *ALNConfig) {
+		ALNConfig.Rack = rack
 	}
 }
 
-func WithUpdatePeriod(updatePeriod time.Duration) Option {
-	return func(config *Config) {
-		config.UpdatePeriod = updatePeriod
+func WithALNDatacenter(datacenter string) ALNOption {
+	return func(ALNConfig *ALNConfig) {
+		ALNConfig.Datacenter = datacenter
 	}
 }
 
-func WithHTTPClient(client *http.Client) Option {
-	return func(config *Config) {
-		config.HTTPClient = client
+func WithALNUpdatePeriod(updatePeriod time.Duration) ALNOption {
+	return func(ALNConfig *ALNConfig) {
+		ALNConfig.UpdatePeriod = updatePeriod
 	}
 }
 
-func NewAlternatorLiveNodes(initialNodes []string, options ...Option) (*AlternatorLiveNodes, error) {
+func WithALNHTTPClient(client *http.Client) ALNOption {
+	return func(ALNConfig *ALNConfig) {
+		ALNConfig.HTTPClient = client
+	}
+}
+
+func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*AlternatorLiveNodes, error) {
 	if len(initialNodes) == 0 {
 		return nil, errors.New("liveNodes cannot be empty")
 	}
 
-	cfg := NewConfig()
+	cfg := NewALNConfig()
 	for _, opt := range options {
 		opt(&cfg)
 	}

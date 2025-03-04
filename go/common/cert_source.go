@@ -1,4 +1,4 @@
-package alternator_live_nodes
+package common
 
 import (
 	"crypto/tls"

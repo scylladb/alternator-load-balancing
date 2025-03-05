@@ -19,6 +19,8 @@ type Config struct {
 	ClientCertificate     *CertSource
 	// Makes it ignore server certificate errors
 	IgnoreServerCertificateError bool
+	// OptimizeHeaders - when true removes unnecessary http headers reducing network footprint
+	OptimizeHeaders bool
 }
 
 type Option func(config *Config)
@@ -124,5 +126,11 @@ func WithClientCertificate(certificate tls.Certificate) Option {
 func WithIgnoreServerCertificateError() Option {
 	return func(config *Config) {
 		config.IgnoreServerCertificateError = true
+	}
+}
+
+func WithOptimizeHeaders() Option {
+	return func(config *Config) {
+		config.OptimizeHeaders = true
 	}
 }

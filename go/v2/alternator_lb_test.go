@@ -3,14 +3,13 @@ package alternator_loadbalancing_v2_test
 import (
 	"context"
 	"testing"
-	"time"
-
-	alb "alternator_loadbalancing_v2"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+
+	alb "alternator_loadbalancing_v2"
 )
 
 var knownNodes = []string{"172.17.0.2"}
@@ -81,7 +80,7 @@ func TestCheckIfRackDatacenterFeatureIsSupported(t *testing.T) {
 
 func TestDynamoDBOperations(t *testing.T) {
 	const tableName = "test_table"
-	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(9999), alb.WithIdleNodesListUpdatePeriod(1*time.Second))
+	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(9999))
 	if err != nil {
 		t.Errorf("Error creating alternator load balancer: %v", err)
 	}

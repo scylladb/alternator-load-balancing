@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,12 +18,15 @@ const (
 )
 
 type AlternatorLiveNodes struct {
-	liveNodes       atomic.Pointer[[]url.URL]
-	initialNodes    []url.URL
-	nextLiveNodeIdx atomic.Uint64
-	updating        atomic.Bool
-	cfg             ALNConfig
-	nextUpdate      atomic.Int64
+	liveNodes          atomic.Pointer[[]url.URL]
+	initialNodes       []url.URL
+	nextLiveNodeIdx    atomic.Uint64
+	cfg                ALNConfig
+	nextUpdate         atomic.Int64
+	idleUpdaterStarted atomic.Bool
+	ctx                context.Context
+	stopFn             context.CancelFunc
+	updateSignal       chan struct{}
 }
 
 type ALNConfig struct {
@@ -31,17 +35,20 @@ type ALNConfig struct {
 	Rack         string
 	Datacenter   string
 	UpdatePeriod time.Duration
-	HTTPClient   *http.Client
+	// Now often read /localnodes when no requests are going through
+	IdleUpdatePeriod time.Duration
+	HTTPClient       *http.Client
 }
 
 func NewALNConfig() ALNConfig {
 	return ALNConfig{
-		Scheme:       defaultScheme,
-		Port:         defaultPort,
-		Rack:         "",
-		Datacenter:   "",
-		UpdatePeriod: defaultUpdatePeriod,
-		HTTPClient:   nil,
+		Scheme:           defaultScheme,
+		Port:             defaultPort,
+		Rack:             "",
+		Datacenter:       "",
+		UpdatePeriod:     defaultUpdatePeriod,
+		IdleUpdatePeriod: 0, // Don't update by default
+		HTTPClient:       nil,
 	}
 }
 
@@ -71,9 +78,15 @@ func WithALNDatacenter(datacenter string) ALNOption {
 	}
 }
 
-func WithALNUpdatePeriod(updatePeriod time.Duration) ALNOption {
+func WithALNUpdatePeriod(period time.Duration) ALNOption {
 	return func(ALNConfig *ALNConfig) {
-		ALNConfig.UpdatePeriod = updatePeriod
+		ALNConfig.UpdatePeriod = period
+	}
+}
+
+func WithALNIdleUpdatePeriod(period time.Duration) ALNOption {
+	return func(ALNConfig *ALNConfig) {
+		ALNConfig.IdleUpdatePeriod = period
 	}
 }
 
@@ -107,39 +120,64 @@ func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*Alter
 		nodes[i] = *parsed
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	out := &AlternatorLiveNodes{
 		initialNodes: nodes,
 		cfg:          cfg,
+		ctx:          ctx,
+		stopFn:       cancel,
+		updateSignal: make(chan struct{}, 1),
 	}
 
 	out.liveNodes.Store(&nodes)
 	return out, nil
 }
 
-func (aln *AlternatorLiveNodes) UpdateOnce() bool {
-	if !aln.updating.CompareAndSwap(false, true) {
-		return false
+func (aln *AlternatorLiveNodes) startIdleUpdater() {
+	if aln.cfg.IdleUpdatePeriod == 0 {
+		return
 	}
-	aln.updateLiveNodes()
-	aln.updating.Store(false)
-	return true
+	if aln.idleUpdaterStarted.CompareAndSwap(false, true) {
+		go func() {
+			t := time.NewTicker(aln.cfg.IdleUpdatePeriod)
+			defer t.Stop()
+			for {
+				select {
+				case <-aln.ctx.Done():
+					return
+				case <-t.C:
+					aln.nextUpdate.Store(time.Now().UTC().Unix() + int64(aln.cfg.UpdatePeriod.Seconds()))
+					aln.updateLiveNodes()
+				case <-aln.updateSignal:
+					aln.updateLiveNodes()
+				}
+			}
+		}()
+	}
+}
+
+func (aln *AlternatorLiveNodes) Start() {
+	aln.startIdleUpdater()
+}
+
+func (aln *AlternatorLiveNodes) Stop() {
+	if aln.stopFn != nil {
+		aln.stopFn()
+	}
 }
 
 // NextNode gets next node, check if node list needs to be updated and run updating routine if needed
 func (aln *AlternatorLiveNodes) NextNode() url.URL {
+	aln.startIdleUpdater()
 	nextUpdate := aln.nextUpdate.Load()
 	current := time.Now().UTC().Unix()
 	if nextUpdate < current {
-		if !aln.updating.CompareAndSwap(false, true) {
-			return aln.nextNode()
+		if aln.nextUpdate.CompareAndSwap(nextUpdate, current+int64(aln.cfg.UpdatePeriod.Seconds())) {
+			select {
+			case aln.updateSignal <- struct{}{}:
+			default:
+			}
 		}
-		go func() {
-			defer func() {
-				aln.nextUpdate.Store(time.Now().UTC().Unix() + int64(aln.cfg.UpdatePeriod.Seconds()))
-				aln.updating.Store(false)
-			}()
-			aln.updateLiveNodes()
-		}()
 	}
 	return aln.nextNode()
 }

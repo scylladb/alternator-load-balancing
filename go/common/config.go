@@ -22,6 +22,8 @@ type Config struct {
 	IgnoreServerCertificateError bool
 	// OptimizeHeaders - when true removes unnecessary http headers reducing network footprint
 	OptimizeHeaders bool
+	// Update node list when no requests are running
+	IdleNodesListUpdatePeriod time.Duration
 }
 
 type Option func(config *Config)
@@ -34,10 +36,11 @@ const (
 
 func NewConfig() *Config {
 	return &Config{
-		Port:                  defaultPort,
-		Scheme:                defaultScheme,
-		AWSRegion:             defaultAWSRegion,
-		NodesListUpdatePeriod: 5 * time.Minute,
+		Port:                      defaultPort,
+		Scheme:                    defaultScheme,
+		AWSRegion:                 defaultAWSRegion,
+		NodesListUpdatePeriod:     5 * time.Minute,
+		IdleNodesListUpdatePeriod: 2 * time.Hour,
 	}
 }
 
@@ -58,6 +61,10 @@ func (c *Config) ToALNConfig() []ALNOption {
 
 	if c.ALNHTTPClient != nil {
 		out = append(out, WithALNHTTPClient(c.HTTPClient))
+	}
+
+	if c.IdleNodesListUpdatePeriod != 0 {
+		out = append(out, WithALNIdleUpdatePeriod(c.IdleNodesListUpdatePeriod))
 	}
 
 	return out
@@ -139,5 +146,11 @@ func WithIgnoreServerCertificateError() Option {
 func WithOptimizeHeaders() Option {
 	return func(config *Config) {
 		config.OptimizeHeaders = true
+	}
+}
+
+func WithIdleNodesListUpdatePeriod(period time.Duration) Option {
+	return func(config *Config) {
+		config.IdleNodesListUpdatePeriod = period
 	}
 }

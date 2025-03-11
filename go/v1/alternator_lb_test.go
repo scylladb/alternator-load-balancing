@@ -16,6 +16,8 @@ func TestCheckIfRackAndDatacenterSetCorrectly_WrongDC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating alternator load balancer: %v", err)
 	}
+	defer lb.Stop()
+
 	if lb.CheckIfRackAndDatacenterSetCorrectly() == nil {
 		t.Fatalf("CheckIfRackAndDatacenterSetCorrectly() should have returned an error")
 	}
@@ -26,6 +28,8 @@ func TestCheckIfRackAndDatacenterSetCorrectly_CorrectDC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating alternator load balancer: %v", err)
 	}
+	defer lb.Stop()
+
 	if err := lb.CheckIfRackAndDatacenterSetCorrectly(); err != nil {
 		t.Fatalf("CheckIfRackAndDatacenterSetCorrectly() unexpectedly returned an error: %v", err)
 	}
@@ -36,6 +40,8 @@ func TestCheckIfRackAndDatacenterSetCorrectly_WrongRack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating alternator load balancer: %v", err)
 	}
+	defer lb.Stop()
+
 	if lb.CheckIfRackAndDatacenterSetCorrectly() == nil {
 		t.Fatalf("CheckIfRackAndDatacenterSetCorrectly() should have returned an error")
 	}
@@ -46,6 +52,8 @@ func TestCheckIfRackAndDatacenterSetCorrectly_CorrectRack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating alternator load balancer: %v", err)
 	}
+	defer lb.Stop()
+
 	if err := lb.CheckIfRackAndDatacenterSetCorrectly(); err != nil {
 		t.Fatalf("CheckIfRackAndDatacenterSetCorrectly() unexpectedly returned an error: %v", err)
 	}
@@ -56,6 +64,8 @@ func TestCheckIfRackDatacenterFeatureIsSupported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating alternator load balancer: %v", err)
 	}
+	defer lb.Stop()
+
 	val, err := lb.CheckIfRackDatacenterFeatureIsSupported()
 	if err != nil {
 		t.Fatalf("CheckIfRackAndDatacenterSetCorrectly() unexpectedly returned an error: %v", err)
@@ -71,6 +81,8 @@ func TestDynamoDBOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating alternator load balancer: %v", err)
 	}
+	defer lb.Stop()
+
 	ddb, err := lb.WithCredentials("whatever", "secret").NewDynamoDB()
 	if err != nil {
 		t.Fatalf("Error creating dynamoDB client: %v", err)

@@ -27,6 +27,7 @@ var (
 	WithDatacenter                   = common.WithDatacenter
 	WithAWSRegion                    = common.WithAWSRegion
 	WithNodesListUpdatePeriod        = common.WithNodesListUpdatePeriod
+	WithIdleNodesListUpdatePeriod    = common.WithIdleNodesListUpdatePeriod
 	WithCredentials                  = common.WithCredentials
 	WithHTTPClient                   = common.WithHTTPClient
 	WithLocalNodesReaderHTTPClient   = common.WithLocalNodesReaderHTTPClient
@@ -68,6 +69,14 @@ func (lb *AlternatorLB) CheckIfRackAndDatacenterSetCorrectly() error {
 
 func (lb *AlternatorLB) CheckIfRackDatacenterFeatureIsSupported() (bool, error) {
 	return lb.nodes.CheckIfRackDatacenterFeatureIsSupported()
+}
+
+func (lb *AlternatorLB) Start() {
+	lb.nodes.Start()
+}
+
+func (lb *AlternatorLB) Stop() {
+	lb.nodes.Stop()
 }
 
 // AWSConfig produces a conf for the AWS SDK that will integrate the alternator loadbalancing with the AWS SDK.

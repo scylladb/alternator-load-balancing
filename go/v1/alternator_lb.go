@@ -8,12 +8,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/defaults"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
@@ -142,28 +139,21 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 		cfg.Credentials = credentials.NewStaticCredentials(lb.cfg.AccessKeyID, lb.cfg.SecretAccessKey, "")
 	}
 
+	if cfg.HTTPClient.Transport == nil {
+		cfg.HTTPClient.Transport = common.DefaultHTTPTransport()
+	}
+	cfg.HTTPClient.Transport = lb.wrapHTTPTransport(cfg.HTTPClient.Transport)
 	return cfg, nil
 }
 
 func (lb *AlternatorLB) NewAWSSession() (*session.Session, error) {
-	handlers := defaults.Handlers()
-	handlers.Send.PushFront(func(r *request.Request) {
-		if strings.Contains(r.HTTPRequest.URL.Host, "dynamodb") {
-			node := lb.nodes.NextNode()
-			r.HTTPRequest.Host = node.Host
-			r.HTTPRequest.URL.Host = node.Host
-			r.HTTPRequest.URL.Scheme = node.Scheme
-		}
-	})
-
 	cfg, err := lb.AWSConfig()
 	if err != nil {
 		return nil, err
 	}
 
 	return session.NewSessionWithOptions(session.Options{
-		Handlers: handlers,
-		Config:   cfg,
+		Config: cfg,
 	})
 }
 
@@ -193,4 +183,22 @@ func (lb *AlternatorLB) NewDynamoDB() (*dynamodb.DynamoDB, error) {
 		return nil, err
 	}
 	return dynamodb.New(sess), nil
+}
+
+type roundTripper struct {
+	originalTransport http.RoundTripper
+	lb                *AlternatorLB
+}
+
+func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	node := rt.lb.NextNode()
+	req.URL = &node
+	return rt.originalTransport.RoundTrip(req)
+}
+
+func (lb *AlternatorLB) wrapHTTPTransport(original http.RoundTripper) http.RoundTripper {
+	return &roundTripper{
+		originalTransport: original,
+		lb:                lb,
+	}
 }

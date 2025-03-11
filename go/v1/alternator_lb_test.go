@@ -3,10 +3,10 @@ package alternator_loadbalancing_test
 import (
 	"testing"
 
-	alb "alternator_loadbalancing"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+
+	alb "alternator_loadbalancing"
 )
 
 var knownNodes = []string{"172.17.0.2"}

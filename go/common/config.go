@@ -16,6 +16,7 @@ type Config struct {
 	AccessKeyID           string
 	SecretAccessKey       string
 	HTTPClient            *http.Client
+	ALNHTTPClient         *http.Client
 	ClientCertificate     *CertSource
 	// Makes it ignore server certificate errors
 	IgnoreServerCertificateError bool
@@ -53,7 +54,7 @@ func (c *Config) ToALNConfig() []ALNOption {
 		out = append(out, WithALNDatacenter(c.Datacenter))
 	}
 
-	if c.HTTPClient != nil {
+	if c.ALNHTTPClient != nil {
 		out = append(out, WithALNHTTPClient(c.HTTPClient))
 	}
 
@@ -106,6 +107,12 @@ func WithCredentials(accessKeyID string, secretAccessKey string) Option {
 func WithHTTPClient(httpClient *http.Client) Option {
 	return func(config *Config) {
 		config.HTTPClient = httpClient
+	}
+}
+
+func WithLocalNodesReaderHTTPClient(httpClient *http.Client) Option {
+	return func(config *Config) {
+		config.ALNHTTPClient = httpClient
 	}
 }
 

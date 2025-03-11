@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	defaultUpdatePeriod = time.Second * 10
+	defaultUpdatePeriod          = time.Second * 10
+	defaultIdleConnectionTimeout = 6 * time.Hour
 )
 
 type AlternatorLiveNodes struct {
@@ -40,7 +41,7 @@ func NewALNConfig() ALNConfig {
 		Rack:         "",
 		Datacenter:   "",
 		UpdatePeriod: defaultUpdatePeriod,
-		HTTPClient:   http.DefaultClient,
+		HTTPClient:   nil,
 	}
 }
 
@@ -90,6 +91,11 @@ func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*Alter
 	cfg := NewALNConfig()
 	for _, opt := range options {
 		opt(&cfg)
+	}
+	if cfg.HTTPClient == nil {
+		cfg.HTTPClient = &http.Client{
+			Transport: DefaultHTTPTransport(),
+		}
 	}
 
 	nodes := make([]url.URL, len(initialNodes))
@@ -164,7 +170,7 @@ func (aln *AlternatorLiveNodes) updateLiveNodes() {
 }
 
 func (aln *AlternatorLiveNodes) getNodes(endpoint *url.URL) ([]url.URL, error) {
-	resp, err := http.Get(endpoint.String())
+	resp, err := aln.cfg.HTTPClient.Get(endpoint.String())
 	if err != nil {
 		return nil, err
 	}

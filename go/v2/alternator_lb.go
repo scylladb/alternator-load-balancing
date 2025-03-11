@@ -27,6 +27,7 @@ var (
 	WithNodesListUpdatePeriod        = common.WithNodesListUpdatePeriod
 	WithCredentials                  = common.WithCredentials
 	WithHTTPClient                   = common.WithHTTPClient
+	WithLocalNodesReaderHTTPClient   = common.WithLocalNodesReaderHTTPClient
 	WithClientCertificateFile        = common.WithClientCertificateFile
 	WithClientCertificate            = common.WithClientCertificate
 	WithIgnoreServerCertificateError = common.WithIgnoreServerCertificateError
@@ -67,7 +68,9 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 	if lb.cfg.HTTPClient != nil {
 		cfg.HTTPClient = lb.cfg.HTTPClient
 	} else {
-		cfg.HTTPClient = http.DefaultClient
+		cfg.HTTPClient = &http.Client{
+			Transport: common.DefaultHTTPTransport(),
+		}
 	}
 
 	if lb.cfg.IgnoreServerCertificateError {

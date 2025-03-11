@@ -80,7 +80,7 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 			return cfg, errors.New("failed to patch http client for ignore server certificate")
 		}
 		if httpClient.Transport == nil {
-			httpClient.Transport = http.DefaultTransport
+			httpClient.Transport = common.DefaultHTTPTransport()
 		}
 		httpTransport, ok := httpClient.Transport.(*http.Transport)
 		if !ok {
@@ -103,7 +103,7 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for client certificate", cfg.HTTPClient)
 		}
 		if httpClient.Transport == nil {
-			httpClient.Transport = http.DefaultTransport
+			httpClient.Transport = common.DefaultHTTPTransport()
 		}
 		transport, ok := httpClient.Transport.(*http.Transport)
 		if !ok {
@@ -118,7 +118,7 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for http headers optimization", cfg.HTTPClient)
 		}
 		if httpClient.Transport == nil {
-			httpClient.Transport = http.DefaultTransport
+			httpClient.Transport = common.DefaultHTTPTransport()
 		}
 		transport, ok := httpClient.Transport.(*http.Transport)
 		if !ok {

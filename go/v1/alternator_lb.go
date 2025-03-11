@@ -99,7 +99,7 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 
 	if lb.cfg.IgnoreServerCertificateError {
 		if cfg.HTTPClient.Transport == nil {
-			cfg.HTTPClient.Transport = http.DefaultTransport
+			cfg.HTTPClient.Transport = common.DefaultHTTPTransport()
 		}
 		httpTransport, ok := cfg.HTTPClient.Transport.(*http.Transport)
 		if !ok {
@@ -118,7 +118,7 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 
 	if lb.cfg.ClientCertificate != nil {
 		if cfg.HTTPClient.Transport == nil {
-			cfg.HTTPClient.Transport = http.DefaultTransport
+			cfg.HTTPClient.Transport = common.DefaultHTTPTransport()
 		}
 		transport, ok := cfg.HTTPClient.Transport.(*http.Transport)
 		if !ok {

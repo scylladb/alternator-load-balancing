@@ -42,7 +42,7 @@ func (c *CertSource) GetCertificate() (*tls.Certificate, error) {
 	if err != nil {
 		err = fmt.Errorf("failed to stat certificate file %s: %w", c.certPath, err)
 		if c.cert != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			LogError(err)
 			return c.cert, nil
 		}
 		return nil, err
@@ -56,7 +56,7 @@ func (c *CertSource) GetCertificate() (*tls.Certificate, error) {
 	if err != nil {
 		err = fmt.Errorf("failed to load certificate file %s: %w", c.certPath, err)
 		if c.cert != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			LogError(err)
 			return c.cert, nil
 		}
 		return nil, err

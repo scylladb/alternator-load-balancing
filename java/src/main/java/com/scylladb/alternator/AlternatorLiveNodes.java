@@ -388,7 +388,7 @@ public class AlternatorLiveNodes extends Thread {
               uri.getPort(),
               uri.getQuery(),
               "rack=fakeRack",
-              "");
+              null);
     } catch (URISyntaxException e) {
       // Should not ever happen
       throw new FailedToCheck("Invalid URI: " + uri, e);

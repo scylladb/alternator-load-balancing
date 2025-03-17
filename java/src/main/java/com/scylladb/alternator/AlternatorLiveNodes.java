@@ -7,6 +7,7 @@ import java.net.ProtocolException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -29,6 +30,7 @@ public class AlternatorLiveNodes extends Thread {
   private final AtomicInteger nextLiveNodeIndex;
   private final String rack;
   private final String datacenter;
+  private final AtomicBoolean running = new AtomicBoolean(false);
 
   private static Logger logger = Logger.getLogger(AlternatorLiveNodes.class.getName());
 
@@ -44,7 +46,7 @@ public class AlternatorLiveNodes extends Thread {
           logger.log(Level.SEVERE, "AlternatorLiveNodes failed to sync nodes list", e);
         }
         try {
-          Thread.sleep(1000);
+          Thread.sleep(5000);
         } catch (InterruptedException e) {
           logger.log(Level.INFO, "AlternatorLiveNodes thread interrupted and stopping");
           return;
@@ -93,18 +95,21 @@ public class AlternatorLiveNodes extends Thread {
     this.nextLiveNodeIndex = new AtomicInteger(0);
     this.rack = rack;
     this.datacenter = datacenter;
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public void start() {
     try {
       this.validate();
     } catch (ValidationError e) {
       throw new RuntimeException(e);
     }
-    liveNodes.set(initialNodes);
+    this.liveNodes.set(initialNodes);
+    this.start();
+  }
 
+  /** {@inheritDoc} */
+  @Override
+  public void start() {
+    if (!running.compareAndSet(false, true)) {
+      return;
+    }
     // setDaemon(true) allows the program to exit even if the thread is still running.
     this.setDaemon(true);
     super.start();

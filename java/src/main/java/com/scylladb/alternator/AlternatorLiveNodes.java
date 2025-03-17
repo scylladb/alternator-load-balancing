@@ -1,17 +1,35 @@
 package com.scylladb.alternator;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
 /**
  * Maintains and automatically updates a list of known live Alternator nodes. Live Alternator nodes
@@ -31,6 +49,7 @@ public class AlternatorLiveNodes extends Thread {
   private final String rack;
   private final String datacenter;
   private final AtomicBoolean running = new AtomicBoolean(false);
+  private final HttpClient httpClient;
 
   private static Logger logger = Logger.getLogger(AlternatorLiveNodes.class.getName());
 
@@ -101,6 +120,7 @@ public class AlternatorLiveNodes extends Thread {
       throw new RuntimeException(e);
     }
     this.liveNodes.set(initialNodes);
+    this.httpClient = prepareHttpClient();
     this.start();
   }
 
@@ -202,9 +222,18 @@ public class AlternatorLiveNodes extends Thread {
 
   // Utility function for reading the entire contents of an input stream
   // (which we assume will be fairly short)
-  private static String streamToString(java.io.InputStream is) {
-    Scanner s = new Scanner(is).useDelimiter("\\A");
-    return s.hasNext() ? s.next() : "";
+  private static String streamToString(HttpEntity body) throws IOException {
+    if (body == null) {
+      return "";
+    }
+    InputStream stream = body.getContent();
+    if (stream == null) {
+      return "";
+    }
+    Scanner s = new Scanner(stream).useDelimiter("\\A");
+    String result = s.hasNext() ? s.next() : "";
+    stream.close();
+    return result;
   }
 
   private void updateLiveNodes() throws IOException {
@@ -218,20 +247,18 @@ public class AlternatorLiveNodes extends Thread {
   private List<URI> getNodes(URI uri) throws IOException {
     // Note that despite this being called HttpURLConnection, it actually
     // supports HTTPS as well.
-    HttpURLConnection conn;
-    conn = (HttpURLConnection) uri.toURL().openConnection();
+    HttpResponse httpResponse;
     try {
-      conn.setRequestMethod("GET");
+      httpResponse = httpClient.execute(new HttpGet(uri));
+      if (httpResponse.getStatusLine().getStatusCode() != HttpURLConnection.HTTP_OK) {
+        return Collections.emptyList();
+      }
     } catch (ProtocolException e) {
       // It can happen only of conn is already connected or "GET" is not a valid method
       // Both cases not true, os it should happen
       throw new RuntimeException(e);
     }
-    int responseCode = conn.getResponseCode();
-    if (responseCode != HttpURLConnection.HTTP_OK) {
-      return Collections.emptyList();
-    }
-    String response = streamToString(conn.getInputStream());
+    String response = streamToString(httpResponse.getEntity());
     // response looks like: ["127.0.0.2","127.0.0.3","127.0.0.1"]
     response = response.trim();
     response = response.substring(1, response.length() - 1);
@@ -268,6 +295,40 @@ public class AlternatorLiveNodes extends Thread {
       }
     }
     return nextAsURI("/localnodes", query);
+  }
+
+  private static HttpClient prepareHttpClient() {
+    RegistryBuilder<ConnectionSocketFactory> socketFactoryRegistryBuilder =
+        RegistryBuilder.<ConnectionSocketFactory>create()
+            .register("http", PlainConnectionSocketFactory.getSocketFactory())
+            .register("https", SSLConnectionSocketFactory.getSocketFactory());
+
+    TrustManager[] trustAllCertificates =
+        new TrustManager[] {
+          new X509TrustManager() {
+            public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+            public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+
+            public X509Certificate[] getAcceptedIssuers() {
+              return new X509Certificate[0];
+            }
+          }
+        };
+    try {
+      SSLContext sslContext = SSLContext.getInstance("SSL");
+      sslContext.init(null, trustAllCertificates, new java.security.SecureRandom());
+      socketFactoryRegistryBuilder.register(
+          "https", new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE));
+    } catch (NoSuchAlgorithmException | KeyManagementException e) {
+      throw new RuntimeException(e);
+    }
+
+    PoolingHttpClientConnectionManager httpConnectionManager =
+        new PoolingHttpClientConnectionManager(socketFactoryRegistryBuilder.build());
+    httpConnectionManager.setMaxTotal(200);
+    httpConnectionManager.setDefaultMaxPerRoute(1);
+    return HttpClients.custom().setConnectionManager(httpConnectionManager).build();
   }
 
   public static class FailedToCheck extends Exception {

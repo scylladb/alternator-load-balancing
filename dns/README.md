@@ -51,7 +51,7 @@ variable. As explained above, this list will be refreshed every one second,
 but this process must start by at least one known nodes, which we can
 contact to find the list of all the nodes.
 
-## Example
+### Example
 
 In the following example, Scylla is running on port 8000 on three
 IP addresses - 127.0.0.1, 127.0.0.2, and 127.0.0.3. The initial
@@ -77,3 +77,55 @@ alternator.example.com.	4	IN	A	127.0.0.2
 
 Note how each response returns one of the three live nodes at random,
 with a TTL of 4 seconds.
+
+## dns-loadbalancer-rr.py
+The Python program `dns-loadbalancer-rr.py` is a second variant of DNS-based
+load balancing.  Whereas `dns-loadbalancer.py` returns one random Scylla
+node in response to every request, `dns-loadbalancer-rr.py` returns the
+*entire* list of live nodes, shifted cyclically by a random amount.
+This technique, [Round-robin DNS](https://en.wikipedia.org/wiki/Round-robin_DNS)
+allows clients which can make use of the entire list to use it - while
+clients that can't use multiple response records, and just use the first
+one will still get a random node. However, the intention is that retrieving
+a list instead of one node will allow DNS caching while still not getting
+stuck on a single node for an entire client process or even machine.
+
+Again, this implementation is not meant to be used for production workloads,
+but more as a *proof of concept*, of what can be done. Again the file
+`dns-loadbalancer-rr.py` should be edited to change the Alternator port
+number (which must be identical across the cluster) - in the `alternator_port`
+variable - and also an initial list of known Scylla nodes in the `livenodes`
+variable.
+
+### Example
+
+In the following example, Scylla is running on port 8000 on four
+IP addresses - 127.0.0.1, 127.0.0.2, 127.0.0.3 and 127.0.0.4.
+The initial `livenodes` list contains just 127.0.0.1.
+
+```
+$ sudo ./dns-loadbalancer-rr.py
+updating livenodes from http://127.0.0.1:8000/localnodes
+['127.0.0.4', '127.0.0.1', '127.0.0.3', '127.0.0.2']
+...
+```
+
+```
+$ dig @localhost alternator.example.com
+...
+;; ANSWER SECTION:
+alternator.example.com.	5	IN	A	127.0.0.1
+alternator.example.com.	5	IN	A	127.0.0.3
+alternator.example.com.	5	IN	A	127.0.0.2
+alternator.example.com.	5	IN	A	127.0.0.4
+$ dig @localhost alternator.example.com
+...
+;; ANSWER SECTION:
+alternator.example.com.	5	IN	A	127.0.0.3
+alternator.example.com.	5	IN	A	127.0.0.2
+alternator.example.com.	5	IN	A	127.0.0.4
+alternator.example.com.	5	IN	A	127.0.0.1
+```
+
+Note how the second response is a cyclically shifted version of the first
+one, but both list all four nodes.

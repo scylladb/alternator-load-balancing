@@ -386,7 +386,7 @@ public class AlternatorLiveNodes extends Thread {
               null,
               uri.getHost(),
               uri.getPort(),
-              uri.getQuery(),
+              uri.getPath(),
               "rack=fakeRack",
               null);
     } catch (URISyntaxException e) {

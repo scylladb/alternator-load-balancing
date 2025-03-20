@@ -5,7 +5,7 @@
 
     <groupId>com.scylladb.alternator</groupId>
     <artifactId>load-balancing</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
     <name>Scylla Alternator client performing load balancing</name>
     <description>DynamoDB client request handler balancing the load across all the nodes of a Scylla cluster</description>
     <url>https://github.com/scylladb/alternator-load-balancing</url>

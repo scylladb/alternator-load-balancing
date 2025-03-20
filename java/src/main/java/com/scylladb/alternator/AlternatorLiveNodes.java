@@ -121,7 +121,6 @@ public class AlternatorLiveNodes extends Thread {
     }
     this.liveNodes.set(initialNodes);
     this.httpClient = prepareHttpClient();
-    this.start();
   }
 
   /** {@inheritDoc} */
@@ -406,6 +405,64 @@ public class AlternatorLiveNodes extends Thread {
       return hostsWithFakeRack.size() != hostsWithoutRack.size();
     } catch (IOException e) {
       throw new FailedToCheck("failed to read list of nodes from the node", e);
+    }
+  }
+
+  /**
+   * <p>pickSupportedDatacenterRack.</p>
+   *
+   * @param seedURI a {@link java.net.URI} object
+   * @param datacenter a {@link java.lang.String} object
+   * @param rack a {@link java.lang.String} object
+   * @return a {@link com.scylladb.alternator.AlternatorLiveNodes} object
+   * @since 1.0.3
+   */
+  public static AlternatorLiveNodes pickSupportedDatacenterRack(
+      URI seedURI, String datacenter, String rack) {
+    AlternatorLiveNodes liveNodesInstance = new AlternatorLiveNodes(seedURI, datacenter, rack);
+    try {
+      liveNodesInstance.validate();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    if (datacenter.isEmpty() && rack.isEmpty()) {
+      return liveNodesInstance;
+    }
+
+    try {
+      if (!liveNodesInstance.checkIfRackDatacenterFeatureIsSupported()) {
+        logger.log(
+            Level.SEVERE,
+            String.format(
+                "server %s does not support rack or datacenter filtering, fallback to no dc and no rack",
+                seedURI));
+        return new AlternatorLiveNodes(seedURI, "", "");
+      }
+    } catch (AlternatorLiveNodes.FailedToCheck e) {
+      throw new RuntimeException(e);
+    }
+
+    try {
+      liveNodesInstance.checkIfRackAndDatacenterSetCorrectly();
+      return liveNodesInstance;
+    } catch (AlternatorLiveNodes.FailedToCheck e) {
+      throw new RuntimeException(e);
+    } catch (AlternatorLiveNodes.ValidationError e) {
+      if (!rack.isEmpty()) {
+        logger.log(
+            Level.WARNING,
+            String.format(
+                "server %s does not know rack `%s` at datacenter `%s`, fallback to no rack",
+                seedURI, rack, datacenter));
+        return pickSupportedDatacenterRack(seedURI, datacenter, "");
+      }
+      logger.log(
+          Level.WARNING,
+          String.format(
+              "server %s does not know datacenter `%s`, fallback to no datacenter",
+              seedURI, datacenter));
+      return new AlternatorLiveNodes(seedURI, "", "");
     }
   }
 }

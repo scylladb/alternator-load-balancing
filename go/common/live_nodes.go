@@ -38,6 +38,8 @@ type ALNConfig struct {
 	// Now often read /localnodes when no requests are going through
 	IdleUpdatePeriod time.Duration
 	HTTPClient       *http.Client
+	// Makes it ignore server certificate errors
+	IgnoreServerCertificateError bool
 }
 
 func NewALNConfig() ALNConfig {
@@ -93,6 +95,12 @@ func WithALNIdleUpdatePeriod(period time.Duration) ALNOption {
 func WithALNHTTPClient(client *http.Client) ALNOption {
 	return func(config *ALNConfig) {
 		config.HTTPClient = client
+	}
+}
+
+func WithALNIgnoreServerCertificateError(value bool) ALNOption {
+	return func(config *ALNConfig) {
+		config.IgnoreServerCertificateError = value
 	}
 }
 

@@ -49,6 +49,7 @@ func (c *Config) ToALNConfig() []ALNOption {
 		WithALNPort(c.Port),
 		WithALNScheme(c.Scheme),
 		WithALNUpdatePeriod(c.NodesListUpdatePeriod),
+		WithALNIgnoreServerCertificateError(c.IgnoreServerCertificateError),
 	}
 
 	if c.Rack != "" {
@@ -137,9 +138,9 @@ func WithClientCertificate(certificate tls.Certificate) Option {
 	}
 }
 
-func WithIgnoreServerCertificateError() Option {
+func WithIgnoreServerCertificateError(value bool) Option {
 	return func(config *Config) {
-		config.IgnoreServerCertificateError = true
+		config.IgnoreServerCertificateError = value
 	}
 }
 

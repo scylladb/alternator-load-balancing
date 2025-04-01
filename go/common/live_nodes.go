@@ -52,47 +52,47 @@ func NewALNConfig() ALNConfig {
 	}
 }
 
-type ALNOption func(ALNConfig *ALNConfig)
+type ALNOption func(config *ALNConfig)
 
 func WithALNScheme(scheme string) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.Scheme = scheme
+	return func(config *ALNConfig) {
+		config.Scheme = scheme
 	}
 }
 
 func WithALNPort(port int) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.Port = port
+	return func(config *ALNConfig) {
+		config.Port = port
 	}
 }
 
 func WithALNRack(rack string) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.Rack = rack
+	return func(config *ALNConfig) {
+		config.Rack = rack
 	}
 }
 
 func WithALNDatacenter(datacenter string) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.Datacenter = datacenter
+	return func(config *ALNConfig) {
+		config.Datacenter = datacenter
 	}
 }
 
 func WithALNUpdatePeriod(period time.Duration) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.UpdatePeriod = period
+	return func(config *ALNConfig) {
+		config.UpdatePeriod = period
 	}
 }
 
 func WithALNIdleUpdatePeriod(period time.Duration) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.IdleUpdatePeriod = period
+	return func(config *ALNConfig) {
+		config.IdleUpdatePeriod = period
 	}
 }
 
 func WithALNHTTPClient(client *http.Client) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.HTTPClient = client
+	return func(config *ALNConfig) {
+		config.HTTPClient = client
 	}
 }
 

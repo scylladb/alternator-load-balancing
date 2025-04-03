@@ -3,15 +3,13 @@ package alternator_loadbalancing_v2
 import (
 	"common"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"net/http"
-	"net/url"
 
 	smithyendpoints "github.com/aws/smithy-go/endpoints"
 )
@@ -31,6 +29,7 @@ var (
 	WithLocalNodesReaderHTTPClient   = common.WithLocalNodesReaderHTTPClient
 	WithClientCertificateFile        = common.WithClientCertificateFile
 	WithClientCertificate            = common.WithClientCertificate
+	WithClientCertificateSource      = common.WithClientCertificateSource
 	WithIgnoreServerCertificateError = common.WithIgnoreServerCertificateError
 	WithOptimizeHeaders              = common.WithOptimizeHeaders
 )
@@ -46,7 +45,7 @@ func NewAlternatorLB(initialNodes []string, options ...common.Option) (*Alternat
 		opt(cfg)
 	}
 
-	nodes, err := common.NewAlternatorLiveNodes(initialNodes, cfg.ToALNConfig()...)
+	nodes, err := common.NewAlternatorLiveNodes(initialNodes, cfg.ToALNOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -74,62 +73,9 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 		}
 	}
 
-	if lb.cfg.IgnoreServerCertificateError {
-		httpClient, ok := cfg.HTTPClient.(*http.Client)
-		if !ok {
-			return cfg, errors.New("failed to patch http client for ignore server certificate")
-		}
-		if httpClient.Transport == nil {
-			httpClient.Transport = common.DefaultHTTPTransport()
-		}
-		httpTransport, ok := httpClient.Transport.(*http.Transport)
-		if !ok {
-			return cfg, errors.New("failed to patch http transport for ignore server certificate")
-		}
-		if httpTransport.TLSClientConfig == nil {
-			httpTransport.TLSClientConfig = &tls.Config{}
-		}
-
-		httpTransport.TLSClientConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			return nil
-		}
-
-		httpTransport.TLSClientConfig.InsecureSkipVerify = true
-	}
-
-	if lb.cfg.ClientCertificate != nil {
-		httpClient, ok := cfg.HTTPClient.(*http.Client)
-		if !ok {
-			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for client certificate", cfg.HTTPClient)
-		}
-		if httpClient.Transport == nil {
-			httpClient.Transport = common.DefaultHTTPTransport()
-		}
-		transport, ok := httpClient.Transport.(*http.Transport)
-		if !ok {
-			return aws.Config{}, fmt.Errorf("failed patch custom HTTP transport (%T) for client certificate", httpClient.Transport)
-		}
-		lb.cfg.ClientCertificate.PatchHTTPTransport(transport)
-	}
-
-	if lb.cfg.OptimizeHeaders {
-		httpClient, ok := cfg.HTTPClient.(*http.Client)
-		if !ok {
-			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for http headers optimization", cfg.HTTPClient)
-		}
-		if httpClient.Transport == nil {
-			httpClient.Transport = common.DefaultHTTPTransport()
-		}
-		transport, ok := httpClient.Transport.(*http.Transport)
-		if !ok {
-			return aws.Config{}, fmt.Errorf("failed patch custom HTTP transport (%T) for http headers optimization", httpClient.Transport)
-		}
-
-		allowedHeaders := []string{"Host", "X-Amz-Target", "Content-Length", "Accept-Encoding"}
-		if lb.cfg.AccessKeyID != "" {
-			allowedHeaders = append(allowedHeaders, "Authorization", "X-Amz-Date")
-		}
-		httpClient.Transport = common.NewHeaderWhiteListing(transport, allowedHeaders...)
+	err := common.PatchHTTPClient(lb.cfg, cfg.HTTPClient)
+	if err != nil {
+		return aws.Config{}, err
 	}
 
 	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {
@@ -142,7 +88,7 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 }
 
 // WithCredentials creates clone of AlternatorLB with altered alternator credentials
-func (lb *AlternatorLB) WithCredentials(accessKeyID string, secretAccessKey string) *AlternatorLB {
+func (lb *AlternatorLB) WithCredentials(accessKeyID, secretAccessKey string) *AlternatorLB {
 	cfg := lb.cfg
 	common.WithCredentials(accessKeyID, secretAccessKey)(&cfg)
 	return &AlternatorLB{

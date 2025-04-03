@@ -1,0 +1,46 @@
+name: 'GoLang - Tests'
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - go/**
+  pull_request:
+    branches: [ master ]
+    paths:
+      - go/**
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: ./go
+jobs:
+  test:
+    name: GoLang - Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Run build
+        run: |
+          make build
+
+      - name: Run linters
+        run: |
+          make check
+
+      - name: Run unit tests
+        run: |
+          make unit-test
+
+      - name: Run integration tests
+        run: |
+          make integration-test
+
+      - name: Stop the cluster
+        if: ${{ always() }}
+        run: |
+         make scylla-down

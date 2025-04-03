@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package alternator_loadbalancing_v2_test
 
 import (
@@ -12,10 +15,14 @@ import (
 	alb "alternator_loadbalancing_v2"
 )
 
-var knownNodes = []string{"172.17.0.2"}
+var (
+	knownNodes = []string{"172.41.0.2"}
+	httpsPort  = 9999
+	httpPort   = 9998
+)
 
 func TestCheckIfRackAndDatacenterSetCorrectly_WrongDC(t *testing.T) {
-	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(9999), alb.WithDatacenter("wrongDC"))
+	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(httpPort), alb.WithDatacenter("wrongDC"))
 	if err != nil {
 		t.Errorf("Error creating alternator load balancer: %v", err)
 	}
@@ -27,7 +34,7 @@ func TestCheckIfRackAndDatacenterSetCorrectly_WrongDC(t *testing.T) {
 }
 
 func TestCheckIfRackAndDatacenterSetCorrectly_CorrectDC(t *testing.T) {
-	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(9999), alb.WithDatacenter("datacenter1"))
+	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(httpPort), alb.WithDatacenter("datacenter1"))
 	if err != nil {
 		t.Errorf("Error creating alternator load balancer: %v", err)
 	}
@@ -39,7 +46,7 @@ func TestCheckIfRackAndDatacenterSetCorrectly_CorrectDC(t *testing.T) {
 }
 
 func TestCheckIfRackAndDatacenterSetCorrectly_WrongRack(t *testing.T) {
-	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(9999), alb.WithDatacenter("wrongDC"), alb.WithRack("wrongRack"))
+	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(httpPort), alb.WithDatacenter("wrongDC"), alb.WithRack("wrongRack"))
 	if err != nil {
 		t.Errorf("Error creating alternator load balancer: %v", err)
 	}
@@ -51,7 +58,7 @@ func TestCheckIfRackAndDatacenterSetCorrectly_WrongRack(t *testing.T) {
 }
 
 func TestCheckIfRackAndDatacenterSetCorrectly_CorrectRack(t *testing.T) {
-	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(9999), alb.WithDatacenter("datacenter1"), alb.WithRack("rack1"))
+	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(httpPort), alb.WithDatacenter("datacenter1"), alb.WithRack("rack1"))
 	if err != nil {
 		t.Errorf("Error creating alternator load balancer: %v", err)
 	}
@@ -63,7 +70,7 @@ func TestCheckIfRackAndDatacenterSetCorrectly_CorrectRack(t *testing.T) {
 }
 
 func TestCheckIfRackDatacenterFeatureIsSupported(t *testing.T) {
-	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(9999), alb.WithDatacenter("datacenter1"))
+	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(httpPort), alb.WithDatacenter("datacenter1"))
 	if err != nil {
 		t.Errorf("Error creating alternator load balancer: %v", err)
 	}
@@ -79,8 +86,19 @@ func TestCheckIfRackDatacenterFeatureIsSupported(t *testing.T) {
 }
 
 func TestDynamoDBOperations(t *testing.T) {
+	t.Run("Plain", func(t *testing.T) {
+		testDynamoDBOperations(t, alb.WithPort(httpPort))
+	})
+	t.Run("SSL", func(t *testing.T) {
+		testDynamoDBOperations(t, alb.WithScheme("https"), alb.WithPort(httpsPort), alb.WithIgnoreServerCertificateError(true))
+	})
+}
+
+func testDynamoDBOperations(t *testing.T, opts ...alb.Option) {
+	t.Helper()
+
 	const tableName = "test_table"
-	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithPort(9999))
+	lb, err := alb.NewAlternatorLB(knownNodes, opts...)
 	if err != nil {
 		t.Errorf("Error creating alternator load balancer: %v", err)
 	}

@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +39,9 @@ type ALNConfig struct {
 	// Now often read /localnodes when no requests are going through
 	IdleUpdatePeriod time.Duration
 	HTTPClient       *http.Client
+	// Makes it ignore server certificate errors
+	IgnoreServerCertificateError bool
+	ClientCertificateSource      *CertSource
 }
 
 func NewALNConfig() ALNConfig {
@@ -52,47 +56,71 @@ func NewALNConfig() ALNConfig {
 	}
 }
 
-type ALNOption func(ALNConfig *ALNConfig)
+type ALNOption func(config *ALNConfig)
 
 func WithALNScheme(scheme string) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.Scheme = scheme
+	return func(config *ALNConfig) {
+		config.Scheme = scheme
 	}
 }
 
 func WithALNPort(port int) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.Port = port
+	return func(config *ALNConfig) {
+		config.Port = port
 	}
 }
 
 func WithALNRack(rack string) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.Rack = rack
+	return func(config *ALNConfig) {
+		config.Rack = rack
 	}
 }
 
 func WithALNDatacenter(datacenter string) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.Datacenter = datacenter
+	return func(config *ALNConfig) {
+		config.Datacenter = datacenter
 	}
 }
 
 func WithALNUpdatePeriod(period time.Duration) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.UpdatePeriod = period
+	return func(config *ALNConfig) {
+		config.UpdatePeriod = period
 	}
 }
 
 func WithALNIdleUpdatePeriod(period time.Duration) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.IdleUpdatePeriod = period
+	return func(config *ALNConfig) {
+		config.IdleUpdatePeriod = period
 	}
 }
 
 func WithALNHTTPClient(client *http.Client) ALNOption {
-	return func(ALNConfig *ALNConfig) {
-		ALNConfig.HTTPClient = client
+	return func(config *ALNConfig) {
+		config.HTTPClient = client
+	}
+}
+
+func WithALNIgnoreServerCertificateError(value bool) ALNOption {
+	return func(config *ALNConfig) {
+		config.IgnoreServerCertificateError = value
+	}
+}
+
+func WithALNClientCertificateFile(certFile, keyFile string) ALNOption {
+	return func(config *ALNConfig) {
+		config.ClientCertificateSource = NewFileCertificate(certFile, keyFile)
+	}
+}
+
+func WithALNClientCertificate(certificate tls.Certificate) ALNOption {
+	return func(config *ALNConfig) {
+		config.ClientCertificateSource = NewCertificate(certificate)
+	}
+}
+
+func WithALNClientCertificateSource(source *CertSource) ALNOption {
+	return func(config *ALNConfig) {
+		config.ClientCertificateSource = source
 	}
 }
 
@@ -105,9 +133,10 @@ func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*Alter
 	for _, opt := range options {
 		opt(&cfg)
 	}
+
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = &http.Client{
-			Transport: DefaultHTTPTransport(),
+			Transport: NewHTTPTransport(cfg),
 		}
 	}
 

@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/tls"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 )
@@ -25,6 +26,8 @@ type Config struct {
 	OptimizeHeaders bool
 	// Update node list when no requests are running
 	IdleNodesListUpdatePeriod time.Duration
+	// A key writer for pre master key: https://wiki.wireshark.org/TLS#using-the-pre-master-secret
+	KeyLogWriter io.Writer
 }
 
 type Option func(config *Config)
@@ -79,6 +82,10 @@ func (c *Config) ToALNOptions() []ALNOption {
 
 	if c.ClientCertificateSource != nil {
 		out = append(out, WithALNClientCertificateSource(c.ClientCertificateSource))
+	}
+
+	if c.KeyLogWriter != nil {
+		out = append(out, WithALNKeyLogWriter(c.KeyLogWriter))
 	}
 
 	return out
@@ -175,6 +182,12 @@ func WithIdleNodesListUpdatePeriod(period time.Duration) Option {
 	}
 }
 
+func WithKeyLogWriter(writer io.Writer) Option {
+	return func(config *Config) {
+		config.KeyLogWriter = writer
+	}
+}
+
 func PatchHTTPClient(config Config, client interface{}) error {
 	httpClient, ok := client.(*http.Client)
 	if !ok {
@@ -182,7 +195,7 @@ func PatchHTTPClient(config Config, client interface{}) error {
 	}
 	alnConfig := config.ToALNConfig()
 
-	if !config.IgnoreServerCertificateError && config.ClientCertificateSource == nil && !config.OptimizeHeaders {
+	if !config.IgnoreServerCertificateError && config.ClientCertificateSource == nil && !config.OptimizeHeaders && config.KeyLogWriter == nil {
 		return nil
 	}
 

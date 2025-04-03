@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -27,6 +28,7 @@ type AlternatorLiveNodes struct {
 	idleUpdaterStarted atomic.Bool
 	ctx                context.Context
 	stopFn             context.CancelFunc
+	httpClient         *http.Client
 	updateSignal       chan struct{}
 }
 
@@ -42,6 +44,8 @@ type ALNConfig struct {
 	// Makes it ignore server certificate errors
 	IgnoreServerCertificateError bool
 	ClientCertificateSource      *CertSource
+	// A key writer for pre master key: https://wiki.wireshark.org/TLS#using-the-pre-master-secret
+	KeyLogWriter io.Writer
 }
 
 func NewALNConfig() ALNConfig {
@@ -124,6 +128,12 @@ func WithALNClientCertificateSource(source *CertSource) ALNOption {
 	}
 }
 
+func WithALNKeyLogWriter(writer io.Writer) ALNOption {
+	return func(config *ALNConfig) {
+		config.KeyLogWriter = writer
+	}
+}
+
 func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*AlternatorLiveNodes, error) {
 	if len(initialNodes) == 0 {
 		return nil, errors.New("liveNodes cannot be empty")
@@ -134,8 +144,9 @@ func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*Alter
 		opt(&cfg)
 	}
 
-	if cfg.HTTPClient == nil {
-		cfg.HTTPClient = &http.Client{
+	httpClient := cfg.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{
 			Transport: NewHTTPTransport(cfg),
 		}
 	}
@@ -155,6 +166,7 @@ func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*Alter
 		cfg:          cfg,
 		ctx:          ctx,
 		stopFn:       cancel,
+		httpClient:   httpClient,
 		updateSignal: make(chan struct{}, 1),
 	}
 
@@ -176,9 +188,10 @@ func (aln *AlternatorLiveNodes) startIdleUpdater() {
 					return
 				case <-t.C:
 					aln.nextUpdate.Store(time.Now().UTC().Unix() + int64(aln.cfg.UpdatePeriod.Seconds()))
-					aln.updateLiveNodes()
+					_ = aln.UpdateLiveNodes()
 				case <-aln.updateSignal:
-					aln.updateLiveNodes()
+					aln.nextUpdate.Store(time.Now().UTC().Unix() + int64(aln.cfg.UpdatePeriod.Seconds()))
+					_ = aln.UpdateLiveNodes()
 				}
 			}
 		}()
@@ -229,15 +242,16 @@ func (aln *AlternatorLiveNodes) nextAsURLWithPath(path, query string) *url.URL {
 	return &newURL
 }
 
-func (aln *AlternatorLiveNodes) updateLiveNodes() {
+func (aln *AlternatorLiveNodes) UpdateLiveNodes() error {
 	newNodes, err := aln.getNodes(aln.nextAsLocalNodesURL())
 	if err == nil && len(newNodes) > 0 {
 		aln.liveNodes.Store(&newNodes)
 	}
+	return err
 }
 
 func (aln *AlternatorLiveNodes) getNodes(endpoint *url.URL) ([]url.URL, error) {
-	resp, err := aln.cfg.HTTPClient.Get(endpoint.String())
+	resp, err := aln.httpClient.Get(endpoint.String())
 	if err != nil {
 		return nil, err
 	}

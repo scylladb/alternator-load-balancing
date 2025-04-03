@@ -22,17 +22,19 @@ func NewHTTPTransport(config ALNConfig) *http.Transport {
 }
 
 func PatchBasicHTTPTransport(config ALNConfig, transport *http.Transport) {
-	needsToBePatched := config.IgnoreServerCertificateError || config.ClientCertificateSource != nil
-
 	transport.IdleConnTimeout = defaultIdleConnectionTimeout
 	transport.MaxIdleConns = 100
 
-	if !needsToBePatched {
+	if !config.IgnoreServerCertificateError && config.ClientCertificateSource == nil && config.KeyLogWriter == nil {
 		return
 	}
 
 	if transport.TLSClientConfig == nil {
 		transport.TLSClientConfig = &tls.Config{}
+	}
+
+	if config.KeyLogWriter != nil {
+		transport.TLSClientConfig.KeyLogWriter = config.KeyLogWriter
 	}
 
 	if config.IgnoreServerCertificateError {
@@ -49,8 +51,4 @@ func PatchBasicHTTPTransport(config ALNConfig, transport *http.Transport) {
 
 func LogError(err error) {
 	_, _ = fmt.Fprintf(os.Stderr, "ERROR: %s", err.Error())
-}
-
-func LogErrorf(format string, args ...interface{}) {
-	_, _ = fmt.Fprintf(os.Stderr, "ERROR:"+format, args...)
 }

@@ -5,6 +5,7 @@ package alternator_loadbalancing_v2_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -91,6 +92,64 @@ func TestDynamoDBOperations(t *testing.T) {
 	})
 	t.Run("SSL", func(t *testing.T) {
 		testDynamoDBOperations(t, alb.WithScheme("https"), alb.WithPort(httpsPort), alb.WithIgnoreServerCertificateError(true))
+	})
+}
+
+type KeyWriter struct {
+	keyData []byte
+}
+
+func (w *KeyWriter) Write(p []byte) (int, error) {
+	w.keyData = append(w.keyData, p...)
+	return len(p), nil
+}
+
+func TestKeyLogWriter(t *testing.T) {
+	opts := []alb.Option{
+		alb.WithScheme("https"),
+		alb.WithPort(httpsPort),
+		alb.WithIgnoreServerCertificateError(true),
+		alb.WithNodesListUpdatePeriod(0),
+		alb.WithIdleNodesListUpdatePeriod(0),
+	}
+	t.Run("KeyFromAlternatorLiveNodes", func(t *testing.T) {
+		keyWriter := &KeyWriter{}
+		lb, err := alb.NewAlternatorLB(knownNodes, append(slices.Clone(opts), alb.WithKeyLogWriter(keyWriter))...)
+		if err != nil {
+			t.Fatalf("Error creating alternator load balancer: %v", err)
+		}
+		defer lb.Stop()
+
+		err = lb.UpdateLiveNodes()
+		if err != nil {
+			t.Fatalf("UpdateLiveNodes() unexpectedly returned an error: %v", err)
+		}
+
+		if len(keyWriter.keyData) == 0 {
+			t.Fatalf("keyData should not be empty")
+		}
+	})
+
+	t.Run("KeyFromAPI", func(t *testing.T) {
+		keyWriter := &KeyWriter{}
+		lb, err := alb.NewAlternatorLB(knownNodes, append(slices.Clone(opts), alb.WithKeyLogWriter(keyWriter))...)
+		if err != nil {
+			t.Fatalf("Error creating alternator load balancer: %v", err)
+		}
+		defer lb.Stop()
+
+		ddb, err := lb.NewDynamoDB()
+		if err != nil {
+			t.Fatalf("Error creating dynamoDB client: %v", err)
+		}
+
+		_, _ = ddb.DeleteTable(context.Background(), &dynamodb.DeleteTableInput{
+			TableName: aws.String("table-that-does-not-exist"),
+		})
+
+		if len(keyWriter.keyData) == 0 {
+			t.Fatalf("keyData should not be empty")
+		}
 	})
 }
 

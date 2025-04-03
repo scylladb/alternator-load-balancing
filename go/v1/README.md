@@ -89,6 +89,22 @@ func main() {
 }
 ```
 
+## Decrypting TLS
+
+Read wireshark wiki regarding decrypting TLS traffic: https://wiki.wireshark.org/TLS#using-the-pre-master-secret
+In order to obtain pre master key secrets, you need to provide a file writer into `alb.WithKeyLogWriter`, example:
+
+```go
+	keyWriter, err := os.OpenFile("/tmp/pre-master-key.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+    if err != nil {
+        panic("Error opening key writer: " + err.Error())
+	}
+	defer keyWriter.Close()
+	lb, err := alb.NewAlternatorLB(knownNodes, alb.WithScheme("https"), alb.WithPort(httpsPort), alb.WithIgnoreServerCertificateError(true), alb.WithKeyLogWriter(keyWriter))
+```
+
+Then you need to configure your traffic analyzer to read pre master key secrets from this file.
+
 ## Example
 
 You can find examples in `[alternator_lb_test.go](alternator_lb_test.go)`

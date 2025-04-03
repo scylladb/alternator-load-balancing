@@ -30,6 +30,7 @@ var (
 	WithClientCertificateSource      = common.WithClientCertificateSource
 	WithIgnoreServerCertificateError = common.WithIgnoreServerCertificateError
 	WithOptimizeHeaders              = common.WithOptimizeHeaders
+	WithKeyLogWriter                 = common.WithKeyLogWriter
 )
 
 type AlternatorLB struct {
@@ -56,6 +57,10 @@ func NewAlternatorLB(initialNodes []string, options ...Option) (*AlternatorLB, e
 
 func (lb *AlternatorLB) NextNode() url.URL {
 	return lb.nodes.NextNode()
+}
+
+func (lb *AlternatorLB) UpdateLiveNodes() error {
+	return lb.nodes.UpdateLiveNodes()
 }
 
 func (lb *AlternatorLB) CheckIfRackAndDatacenterSetCorrectly() error {

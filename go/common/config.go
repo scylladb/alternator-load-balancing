@@ -2,22 +2,23 @@ package common
 
 import (
 	"crypto/tls"
+	"errors"
 	"net/http"
 	"time"
 )
 
 type Config struct {
-	Port                  int
-	Scheme                string
-	Rack                  string
-	Datacenter            string
-	AWSRegion             string
-	NodesListUpdatePeriod time.Duration
-	AccessKeyID           string
-	SecretAccessKey       string
-	HTTPClient            *http.Client
-	ALNHTTPClient         *http.Client
-	ClientCertificate     *CertSource
+	Port                    int
+	Scheme                  string
+	Rack                    string
+	Datacenter              string
+	AWSRegion               string
+	NodesListUpdatePeriod   time.Duration
+	AccessKeyID             string
+	SecretAccessKey         string
+	HTTPClient              *http.Client
+	ALNHTTPClient           *http.Client
+	ClientCertificateSource *CertSource
 	// Makes it ignore server certificate errors
 	IgnoreServerCertificateError bool
 	// OptimizeHeaders - when true removes unnecessary http headers reducing network footprint
@@ -44,7 +45,15 @@ func NewConfig() *Config {
 	}
 }
 
-func (c *Config) ToALNConfig() []ALNOption {
+func (c *Config) ToALNConfig() ALNConfig {
+	cfg := NewALNConfig()
+	for _, opt := range c.ToALNOptions() {
+		opt(&cfg)
+	}
+	return cfg
+}
+
+func (c *Config) ToALNOptions() []ALNOption {
 	out := []ALNOption{
 		WithALNPort(c.Port),
 		WithALNScheme(c.Scheme),
@@ -66,6 +75,10 @@ func (c *Config) ToALNConfig() []ALNOption {
 
 	if c.IdleNodesListUpdatePeriod != 0 {
 		out = append(out, WithALNIdleUpdatePeriod(c.IdleNodesListUpdatePeriod))
+	}
+
+	if c.ClientCertificateSource != nil {
+		out = append(out, WithALNClientCertificateSource(c.ClientCertificateSource))
 	}
 
 	return out
@@ -128,13 +141,19 @@ func WithLocalNodesReaderHTTPClient(httpClient *http.Client) Option {
 
 func WithClientCertificateFile(certFile, keyFile string) Option {
 	return func(config *Config) {
-		config.ClientCertificate = NewFileCertificate(certFile, keyFile)
+		config.ClientCertificateSource = NewFileCertificate(certFile, keyFile)
 	}
 }
 
 func WithClientCertificate(certificate tls.Certificate) Option {
 	return func(config *Config) {
-		config.ClientCertificate = NewCertificate(certificate)
+		config.ClientCertificateSource = NewCertificate(certificate)
+	}
+}
+
+func WithClientCertificateSource(source *CertSource) Option {
+	return func(config *Config) {
+		config.ClientCertificateSource = source
 	}
 }
 
@@ -154,4 +173,34 @@ func WithIdleNodesListUpdatePeriod(period time.Duration) Option {
 	return func(config *Config) {
 		config.IdleNodesListUpdatePeriod = period
 	}
+}
+
+func PatchHTTPClient(config Config, client interface{}) error {
+	httpClient, ok := client.(*http.Client)
+	if !ok {
+		return errors.New("config is not a http client")
+	}
+	alnConfig := config.ToALNConfig()
+
+	if !config.IgnoreServerCertificateError && config.ClientCertificateSource == nil && !config.OptimizeHeaders {
+		return nil
+	}
+
+	if httpClient.Transport == nil {
+		httpClient.Transport = DefaultHTTPTransport()
+	}
+	httpTransport, ok := httpClient.Transport.(*http.Transport)
+	if !ok {
+		return errors.New("failed to patch http transport for ignore server certificate")
+	}
+	PatchBasicHTTPTransport(alnConfig, httpTransport)
+
+	if config.OptimizeHeaders {
+		allowedHeaders := []string{"Host", "X-Amz-Target", "Content-Length", "Accept-Encoding"}
+		if config.AccessKeyID != "" {
+			allowedHeaders = append(allowedHeaders, "Authorization", "X-Amz-Date")
+		}
+		httpClient.Transport = NewHeaderWhiteListingTransport(httpTransport, allowedHeaders...)
+	}
+	return nil
 }

@@ -2,9 +2,6 @@ package alternator_loadbalancing
 
 import (
 	"common"
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -30,6 +27,7 @@ var (
 	WithLocalNodesReaderHTTPClient   = common.WithLocalNodesReaderHTTPClient
 	WithClientCertificateFile        = common.WithClientCertificateFile
 	WithClientCertificate            = common.WithClientCertificate
+	WithClientCertificateSource      = common.WithClientCertificateSource
 	WithIgnoreServerCertificateError = common.WithIgnoreServerCertificateError
 	WithOptimizeHeaders              = common.WithOptimizeHeaders
 )
@@ -45,7 +43,7 @@ func NewAlternatorLB(initialNodes []string, options ...Option) (*AlternatorLB, e
 		opt(cfg)
 	}
 
-	nodes, err := common.NewAlternatorLiveNodes(initialNodes, cfg.ToALNConfig()...)
+	nodes, err := common.NewAlternatorLiveNodes(initialNodes, cfg.ToALNOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,43 +92,9 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 		}
 	}
 
-	if lb.cfg.IgnoreServerCertificateError {
-		if cfg.HTTPClient.Transport == nil {
-			cfg.HTTPClient.Transport = common.DefaultHTTPTransport()
-		}
-		httpTransport, ok := cfg.HTTPClient.Transport.(*http.Transport)
-		if !ok {
-			return cfg, errors.New("failed to patch http transport for ignore server certificate")
-		}
-		if httpTransport.TLSClientConfig == nil {
-			httpTransport.TLSClientConfig = &tls.Config{}
-		}
-
-		httpTransport.TLSClientConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			return nil
-		}
-
-		httpTransport.TLSClientConfig.InsecureSkipVerify = true
-	}
-
-	if lb.cfg.ClientCertificate != nil {
-		if cfg.HTTPClient.Transport == nil {
-			cfg.HTTPClient.Transport = common.DefaultHTTPTransport()
-		}
-		transport, ok := cfg.HTTPClient.Transport.(*http.Transport)
-		if !ok {
-			lb.cfg.ClientCertificate.PatchHTTPTransport(transport)
-		} else {
-			return aws.Config{}, fmt.Errorf("failed patch custom HTTP client (%T) for client certificate", cfg.HTTPClient)
-		}
-	}
-
-	if lb.cfg.OptimizeHeaders {
-		allowedHeaders := []string{"Host", "X-Amz-Target", "Content-Length", "Accept-Encoding"}
-		if lb.cfg.AccessKeyID != "" {
-			allowedHeaders = append(allowedHeaders, "Authorization", "X-Amz-Date")
-		}
-		cfg.HTTPClient.Transport = common.NewHeaderWhiteListing(cfg.HTTPClient.Transport, allowedHeaders...)
+	err := common.PatchHTTPClient(lb.cfg, cfg.HTTPClient)
+	if err != nil {
+		return cfg, err
 	}
 
 	if lb.cfg.AccessKeyID != "" && lb.cfg.SecretAccessKey != "" {
@@ -139,9 +103,6 @@ func (lb *AlternatorLB) AWSConfig() (aws.Config, error) {
 		cfg.Credentials = credentials.NewStaticCredentials(lb.cfg.AccessKeyID, lb.cfg.SecretAccessKey, "")
 	}
 
-	if cfg.HTTPClient.Transport == nil {
-		cfg.HTTPClient.Transport = common.DefaultHTTPTransport()
-	}
 	cfg.HTTPClient.Transport = lb.wrapHTTPTransport(cfg.HTTPClient.Transport)
 	return cfg, nil
 }
@@ -158,7 +119,7 @@ func (lb *AlternatorLB) NewAWSSession() (*session.Session, error) {
 }
 
 // WithCredentials creates clone of AlternatorLB with altered alternator credentials
-func (lb *AlternatorLB) WithCredentials(accessKeyID string, secretAccessKey string) *AlternatorLB {
+func (lb *AlternatorLB) WithCredentials(accessKeyID, secretAccessKey string) *AlternatorLB {
 	cfg := lb.cfg
 	common.WithCredentials(accessKeyID, secretAccessKey)(&cfg)
 	return &AlternatorLB{

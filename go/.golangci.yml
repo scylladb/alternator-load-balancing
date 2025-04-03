@@ -1,0 +1,44 @@
+issues:
+  new: true
+  new-from-rev: origin/master
+  exclude-dirs:
+    - semver
+linters:
+  disable-all: true
+  enable:
+  - errcheck
+  - gocritic
+  - gofumpt
+  - goheader
+  - goimports
+  - gosimple
+  - govet
+  - ineffassign
+  - misspell
+  - predeclared
+  - revive
+  - staticcheck
+  - thelper
+  - tparallel
+  - typecheck
+  - unused
+  - forbidigo
+run:
+  allow-parallel-runners: true
+  deadline: 10m
+  modules-download-mode: readonly
+  tests: true
+  build-tags: [integration]
+  go: '1.23.0'
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+    - shadow
+    - fieldalignment
+  gofumpt:
+    extra-rules: true
+  revive:
+    rules:
+      - name: var-naming
+        disabled: true

@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -40,6 +41,7 @@ type ALNConfig struct {
 	HTTPClient       *http.Client
 	// Makes it ignore server certificate errors
 	IgnoreServerCertificateError bool
+	ClientCertificateSource      *CertSource
 }
 
 func NewALNConfig() ALNConfig {
@@ -104,6 +106,24 @@ func WithALNIgnoreServerCertificateError(value bool) ALNOption {
 	}
 }
 
+func WithALNClientCertificateFile(certFile, keyFile string) ALNOption {
+	return func(config *ALNConfig) {
+		config.ClientCertificateSource = NewFileCertificate(certFile, keyFile)
+	}
+}
+
+func WithALNClientCertificate(certificate tls.Certificate) ALNOption {
+	return func(config *ALNConfig) {
+		config.ClientCertificateSource = NewCertificate(certificate)
+	}
+}
+
+func WithALNClientCertificateSource(source *CertSource) ALNOption {
+	return func(config *ALNConfig) {
+		config.ClientCertificateSource = source
+	}
+}
+
 func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*AlternatorLiveNodes, error) {
 	if len(initialNodes) == 0 {
 		return nil, errors.New("liveNodes cannot be empty")
@@ -113,9 +133,10 @@ func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*Alter
 	for _, opt := range options {
 		opt(&cfg)
 	}
+
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = &http.Client{
-			Transport: DefaultHTTPTransport(),
+			Transport: NewHTTPTransport(cfg),
 		}
 	}
 

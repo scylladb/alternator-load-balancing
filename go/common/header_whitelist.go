@@ -11,7 +11,7 @@ type HeaderWhiteListing struct {
 	original       http.RoundTripper
 }
 
-func NewHeaderWhiteListing(original http.RoundTripper, allowedHeaders ...string) *HeaderWhiteListing {
+func NewHeaderWhiteListingTransport(original http.RoundTripper, allowedHeaders ...string) *HeaderWhiteListing {
 	for id, h := range allowedHeaders {
 		allowedHeaders[id] = strings.ToLower(h)
 	}

@@ -28,6 +28,10 @@ type Config struct {
 	IdleNodesListUpdatePeriod time.Duration
 	// A key writer for pre master key: https://wiki.wireshark.org/TLS#using-the-pre-master-secret
 	KeyLogWriter io.Writer
+	// TLS session cache
+	TLSSessionCache tls.ClientSessionCache
+	// Maximum number of idle HTTP connections
+	MaxIdleHTTPConnections int
 }
 
 type Option func(config *Config)
@@ -38,6 +42,8 @@ const (
 	defaultAWSRegion = "default-alb-region"
 )
 
+var defaultTLSSessionCache = tls.NewLRUClientSessionCache(256)
+
 func NewConfig() *Config {
 	return &Config{
 		Port:                      defaultPort,
@@ -45,6 +51,8 @@ func NewConfig() *Config {
 		AWSRegion:                 defaultAWSRegion,
 		NodesListUpdatePeriod:     5 * time.Minute,
 		IdleNodesListUpdatePeriod: 2 * time.Hour,
+		TLSSessionCache:           defaultTLSSessionCache,
+		MaxIdleHTTPConnections:    100,
 	}
 }
 
@@ -62,6 +70,7 @@ func (c *Config) ToALNOptions() []ALNOption {
 		WithALNScheme(c.Scheme),
 		WithALNUpdatePeriod(c.NodesListUpdatePeriod),
 		WithALNIgnoreServerCertificateError(c.IgnoreServerCertificateError),
+		WithALNMaxIdleHTTPConnections(c.MaxIdleHTTPConnections),
 	}
 
 	if c.Rack != "" {
@@ -88,6 +97,9 @@ func (c *Config) ToALNOptions() []ALNOption {
 		out = append(out, WithALNKeyLogWriter(c.KeyLogWriter))
 	}
 
+	if c.TLSSessionCache != nil {
+		out = append(out, WithALNTLSSessionCache(c.TLSSessionCache))
+	}
 	return out
 }
 
@@ -188,6 +200,18 @@ func WithKeyLogWriter(writer io.Writer) Option {
 	}
 }
 
+func WithTLSSessionCache(cache tls.ClientSessionCache) Option {
+	return func(config *Config) {
+		config.TLSSessionCache = cache
+	}
+}
+
+func WithMaxIdleHTTPConnections(value int) Option {
+	return func(config *Config) {
+		config.MaxIdleHTTPConnections = value
+	}
+}
+
 func PatchHTTPClient(config Config, client interface{}) error {
 	httpClient, ok := client.(*http.Client)
 	if !ok {
@@ -195,13 +219,10 @@ func PatchHTTPClient(config Config, client interface{}) error {
 	}
 	alnConfig := config.ToALNConfig()
 
-	if !config.IgnoreServerCertificateError && config.ClientCertificateSource == nil && !config.OptimizeHeaders && config.KeyLogWriter == nil {
-		return nil
-	}
-
 	if httpClient.Transport == nil {
 		httpClient.Transport = DefaultHTTPTransport()
 	}
+
 	httpTransport, ok := httpClient.Transport.(*http.Transport)
 	if !ok {
 		return errors.New("failed to patch http transport for ignore server certificate")

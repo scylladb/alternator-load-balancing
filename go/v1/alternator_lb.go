@@ -31,6 +31,8 @@ var (
 	WithIgnoreServerCertificateError = common.WithIgnoreServerCertificateError
 	WithOptimizeHeaders              = common.WithOptimizeHeaders
 	WithKeyLogWriter                 = common.WithKeyLogWriter
+	WithTLSSessionCache              = common.WithTLSSessionCache
+	WithMaxIdleHTTPConnections       = common.WithMaxIdleHTTPConnections
 )
 
 type AlternatorLB struct {

@@ -46,17 +46,22 @@ type ALNConfig struct {
 	ClientCertificateSource      *CertSource
 	// A key writer for pre master key: https://wiki.wireshark.org/TLS#using-the-pre-master-secret
 	KeyLogWriter io.Writer
+	// TLS session cache
+	TLSSessionCache        tls.ClientSessionCache
+	MaxIdleHTTPConnections int
 }
 
 func NewALNConfig() ALNConfig {
 	return ALNConfig{
-		Scheme:           defaultScheme,
-		Port:             defaultPort,
-		Rack:             "",
-		Datacenter:       "",
-		UpdatePeriod:     defaultUpdatePeriod,
-		IdleUpdatePeriod: 0, // Don't update by default
-		HTTPClient:       nil,
+		Scheme:                 defaultScheme,
+		Port:                   defaultPort,
+		Rack:                   "",
+		Datacenter:             "",
+		UpdatePeriod:           defaultUpdatePeriod,
+		IdleUpdatePeriod:       0, // Don't update by default
+		HTTPClient:             nil,
+		TLSSessionCache:        defaultTLSSessionCache,
+		MaxIdleHTTPConnections: 100,
 	}
 }
 
@@ -134,6 +139,18 @@ func WithALNKeyLogWriter(writer io.Writer) ALNOption {
 	}
 }
 
+func WithALNTLSSessionCache(cache tls.ClientSessionCache) ALNOption {
+	return func(config *ALNConfig) {
+		config.TLSSessionCache = cache
+	}
+}
+
+func WithALNMaxIdleHTTPConnections(value int) ALNOption {
+	return func(config *ALNConfig) {
+		config.MaxIdleHTTPConnections = value
+	}
+}
+
 func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*AlternatorLiveNodes, error) {
 	if len(initialNodes) == 0 {
 		return nil, errors.New("liveNodes cannot be empty")
@@ -174,8 +191,24 @@ func NewAlternatorLiveNodes(initialNodes []string, options ...ALNOption) (*Alter
 	return out, nil
 }
 
+func (aln *AlternatorLiveNodes) triggerUpdate() {
+	if aln.cfg.UpdatePeriod <= 0 {
+		return
+	}
+	nextUpdate := aln.nextUpdate.Load()
+	current := time.Now().UTC().Unix()
+	if nextUpdate < current {
+		if aln.nextUpdate.CompareAndSwap(nextUpdate, current+int64(aln.cfg.UpdatePeriod.Seconds())) {
+			select {
+			case aln.updateSignal <- struct{}{}:
+			default:
+			}
+		}
+	}
+}
+
 func (aln *AlternatorLiveNodes) startIdleUpdater() {
-	if aln.cfg.IdleUpdatePeriod == 0 {
+	if aln.cfg.IdleUpdatePeriod <= 0 {
 		return
 	}
 	if aln.idleUpdaterStarted.CompareAndSwap(false, true) {
@@ -211,16 +244,7 @@ func (aln *AlternatorLiveNodes) Stop() {
 // NextNode gets next node, check if node list needs to be updated and run updating routine if needed
 func (aln *AlternatorLiveNodes) NextNode() url.URL {
 	aln.startIdleUpdater()
-	nextUpdate := aln.nextUpdate.Load()
-	current := time.Now().UTC().Unix()
-	if nextUpdate < current {
-		if aln.nextUpdate.CompareAndSwap(nextUpdate, current+int64(aln.cfg.UpdatePeriod.Seconds())) {
-			select {
-			case aln.updateSignal <- struct{}{}:
-			default:
-			}
-		}
-	}
+	aln.triggerUpdate()
 	return aln.nextNode()
 }
 

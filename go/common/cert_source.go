@@ -3,7 +3,6 @@ package common
 import (
 	"crypto/tls"
 	"fmt"
-	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -65,13 +64,4 @@ func (c *CertSource) GetCertificate() (*tls.Certificate, error) {
 	c.cert = &cert
 	c.modTime = certStat.ModTime()
 	return c.cert, nil
-}
-
-func (c *CertSource) PatchHTTPTransport(transport *http.Transport) {
-	if transport.TLSClientConfig == nil {
-		transport.TLSClientConfig = &tls.Config{}
-	}
-	transport.TLSClientConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		return c.GetCertificate()
-	}
 }

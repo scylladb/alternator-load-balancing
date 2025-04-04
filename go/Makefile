@@ -107,7 +107,7 @@ integration-test: scylla-up
 
 .PHONY: .prepare-cert
 .prepare-cert:
-	@[ -f "test/scylla/db.key" ] || (echo "Prepare certificate" && cd test/scylla/ && openssl req -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN=www.example.com" -x509 -newkey rsa:4096 -keyout db.key -out db.crt -days 3650 -nodes)
+	@[ -f "test/scylla/db.key" ] || (echo "Prepare certificate" && cd test/scylla/ && openssl req -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN=www.example.com" -x509 -newkey rsa:4096 -keyout db.key -out db.crt -days 3650 -nodes && chmod 644 db.key)
 
 .PHONY: scylla-up
 scylla-up: .prepare-cert $(GOBIN)/docker-compose

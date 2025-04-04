@@ -11,7 +11,6 @@ import (
 func DefaultHTTPTransport() *http.Transport {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.IdleConnTimeout = defaultIdleConnectionTimeout
-	transport.MaxIdleConns = 100
 	return transport
 }
 
@@ -23,11 +22,7 @@ func NewHTTPTransport(config ALNConfig) *http.Transport {
 
 func PatchBasicHTTPTransport(config ALNConfig, transport *http.Transport) {
 	transport.IdleConnTimeout = defaultIdleConnectionTimeout
-	transport.MaxIdleConns = 100
-
-	if !config.IgnoreServerCertificateError && config.ClientCertificateSource == nil && config.KeyLogWriter == nil {
-		return
-	}
+	transport.MaxIdleConns = config.MaxIdleHTTPConnections
 
 	if transport.TLSClientConfig == nil {
 		transport.TLSClientConfig = &tls.Config{}
@@ -44,8 +39,14 @@ func PatchBasicHTTPTransport(config ALNConfig, transport *http.Transport) {
 		}
 	}
 
+	if config.TLSSessionCache != nil {
+		transport.TLSClientConfig.ClientSessionCache = config.TLSSessionCache
+	}
+
 	if config.ClientCertificateSource != nil {
-		config.ClientCertificateSource.PatchHTTPTransport(transport)
+		transport.TLSClientConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return config.ClientCertificateSource.GetCertificate()
+		}
 	}
 }
 

@@ -1,14 +1,16 @@
 import ipaddress
+import json
 import threading
 import time
 import logging
-import requests
 
 from typing import List
 from urllib.parse import urlparse, urlunparse
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 
+import urllib3
+from botocore import config
 
 
 class ExecutorPool:
@@ -52,6 +54,8 @@ class Config:
     aws_access_key_id: str = "fake-alternator-lb-access-key-id"
     aws_secret_access_key: str = "fake-alternator-lb-secret-access-key"
     update_interval: int = 10
+    connect_timeout: int = 3600
+    max_pool_connections: int = 200
 
     def _get_nodes(self) -> List[str]:
         nodes = []
@@ -96,6 +100,8 @@ class AlternatorLB:
 
     def __init__(self, config: Config):
         self._pool.add_ref()
+        self._conn_pools = {}
+        self._conn_pools_lock = threading.Lock()
         self._config = config
         if not self._config.nodes:
             raise ValueError("liveNodes cannot be null or empty")
@@ -107,6 +113,25 @@ class AlternatorLB:
         self._updating = False
         self._next_update_time = 0
 
+    def _get_connection_pool(self, parsed):
+        with self._conn_pools_lock:
+            pool = self._conn_pools.get(parsed.netloc)
+            if pool:
+                return pool
+            if self._config.schema == "http":
+                pool = urllib3.HTTPConnectionPool(
+                    host=parsed.hostname,
+                    port=parsed.port,
+                )
+            else:
+                pool = urllib3.HTTPSConnectionPool(
+                    host=parsed.hostname,
+                    port=parsed.port,
+                    cert_reqs='CERT_NONE',
+                )
+            self._conn_pools[parsed.netloc] = pool
+            return pool
+
     @staticmethod
     def _validate_node(node: str) -> bool:
         try:
@@ -116,7 +141,7 @@ class AlternatorLB:
             return False
 
     def _update_nodes_if_needed(self):
-        if self._updating:
+        if self._updating or not self._config.update_interval:
             return
         now = time.time()
         if self._next_update_time >= now:
@@ -162,11 +187,15 @@ class AlternatorLB:
 
     def _get_nodes(self, uri: str) -> List[str]:
         try:
-            response = requests.get(uri, timeout=5)
-            if response.status_code != 200:
+            parsed = urlparse(uri)
+            url = parsed.path
+            if parsed.query:
+                url += "?" + parsed.query
+            response = self._get_connection_pool(parsed).request("GET", url)
+            if response.status != 200:
                 return []
 
-            nodes = response.json()
+            nodes = json.loads(response.data)
             return [self._host_to_uri(host) for host in nodes if host and self._validate_node(host)]
         except Exception as e:
             self._logger.warning(f"Failed to fetch nodes from {uri}: {e}")
@@ -209,7 +238,15 @@ class AlternatorLB:
         with self._live_nodes_lock:
             return self._live_nodes[:]
 
-    def new_botocore_dynamodb_client(self, key: str = "", secret: str = "", region: str = "") -> object:
+    def _init_botocore_config(self) -> config.Config:
+        config_params = {
+            "tcp_keepalive": True,
+            "connect_timeout": self._config.connect_timeout,
+            "max_pool_connections": self._config.max_pool_connections,
+        }
+        return config.Config(**config_params)
+
+    def new_botocore_dynamodb_client(self, key: str = "", secret: str = "", region: str = ""):
         import botocore.session
 
         session = botocore.session.get_session()
@@ -221,11 +258,17 @@ class AlternatorLB:
             region = self._config.aws_region_name
 
         ddb = session.create_client(
-            'dynamodb', region_name=region, aws_access_key_id=key, aws_secret_access_key=secret)
+            'dynamodb',
+            region_name=region,
+            aws_access_key_id=key,
+            aws_secret_access_key=secret,
+            verify=False,
+            config=self._init_botocore_config(),
+        )
         self.patch_dynamodb_client(ddb)
         return ddb
 
-    def new_boto3_dynamodb_client(self, key: str = "", secret: str = "", region: str = "") -> object:
+    def new_boto3_dynamodb_client(self, key: str = "", secret: str = "", region: str = ""):
         import boto3.session
 
         if not secret:
@@ -235,8 +278,14 @@ class AlternatorLB:
         if not region:
             region = self._config.aws_region_name
 
-        ddb = boto3.client('dynamodb', region_name=region,
-                           aws_access_key_id=key, aws_secret_access_key=secret)
+        ddb = boto3.client(
+            'dynamodb',
+            region_name=region,
+            aws_access_key_id=key,
+            aws_secret_access_key=secret,
+            verify=False,
+            config=self._init_botocore_config(),
+        )
         self.patch_dynamodb_client(ddb)
         return ddb
 

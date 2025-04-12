@@ -1,6 +1,6 @@
 networks:
   public:
-    name: alternator_load_balancer_golang_network
+    name: alb_golang_network
     driver: bridge
     ipam:
       driver: default

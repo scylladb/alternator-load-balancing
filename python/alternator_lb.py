@@ -1,36 +1,42 @@
-import concurrent
 import threading
 import time
 import logging
 import requests
 
-from concurrent.futures import ThreadPoolExecutor
 from typing import List
 from urllib.parse import urlparse, urlunparse
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
 
 
 class ExecutorPool:
     def __init__(self):
         self._executor = None
         self._ref_count = 0
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def create_executor():
+        return ThreadPoolExecutor(max_workers=1)
 
     def add_ref(self):
-        self._ref_count += 1
-        if self._executor is None:
-            self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        with self._lock:
+            self._ref_count += 1
+            if self._executor is None:
+                self._executor = self.create_executor()
 
     def remove_ref(self):
-        self._ref_count -= 1
-        if self._ref_count <= 0:
+        with self._lock:
+            self._ref_count -= 1
+            if self._ref_count > 0:
+                return
             (pool, self._executor) = (self._executor, None)
             if pool is not None:
                 pool.shutdown(wait=False)
-        if self._executor is not None:
-            self._executor.shutdown(wait=False)
 
     def submit(self, fn, *args, **kwargs):
         return self._executor.submit(fn, *args, **kwargs)
+
 
 @dataclass
 class Config:
@@ -40,20 +46,20 @@ class Config:
     datacenter: str = None
     rack: str = None
     aws_region_name: str = "fake-alternator-lb-region"
-    aws_access_key_id: str = None
-    aws_secret_access_key: str = None
+    aws_access_key_id: str = "fake-alternator-lb-access-key-id"
+    aws_secret_access_key: str = "fake-alternator-lb-secret-access-key"
     update_interval: int = 10
 
     def _get_nodes(self) -> List[str]:
         nodes = []
         for node in self.nodes:
-            uri = urlunparse((self.schema, node + ":" + str(self.port), "", "", "", ""))
+            uri = urlunparse((self.schema, node + ":" +
+                             str(self.port), "", "", "", ""))
             parsed_uri = urlparse(uri)
             if not parsed_uri.scheme or not parsed_uri.netloc:
                 raise ValueError(f"Invalid URI: {uri}")
             nodes.append(uri)
         return nodes
-
 
 
 class AlternatorLB:
@@ -119,7 +125,8 @@ class AlternatorLB:
     def _next_alternator_node(self) -> str:
         self._update_nodes_if_needed()
         with self._live_nodes_lock:
-            node = self._live_nodes[self._next_live_node_index % len(self._live_nodes)]
+            node = self._live_nodes[self._next_live_node_index % len(
+                self._live_nodes)]
             self._next_live_node_index += 1
             return node
 
@@ -130,11 +137,13 @@ class AlternatorLB:
 
         node = None
         with self._live_nodes_lock:
-            node = self._live_nodes[self._next_live_node_index % len(self._live_nodes)]
+            node = self._live_nodes[self._next_live_node_index % len(
+                self._live_nodes)]
 
         self._next_live_node_index += 1
         parsed = urlparse(node)
-        new_uri = urlunparse((parsed.scheme, parsed.netloc, path, "", query, ""))
+        new_uri = urlunparse(
+            (parsed.scheme, parsed.netloc, path, "", query, ""))
         return new_uri
 
     def _update_live_nodes(self):
@@ -176,7 +185,8 @@ class AlternatorLB:
 
         nodes = self._get_nodes(self._next_as_local_nodes_uri())
         if not nodes:
-            raise ValueError("Node returned empty list, datacenter or rack are set incorrectly")
+            raise ValueError(
+                "Node returned empty list, datacenter or rack are set incorrectly")
 
     def check_if_rack_datacenter_feature_is_supported(self) -> bool:
         uri = self._next_as_uri("/localnodes")
@@ -194,8 +204,9 @@ class AlternatorLB:
         with self._live_nodes_lock:
             return self._live_nodes[:]
 
-    def new_dynamodb_client(self, key: str = "", secret: str = "", region: str = "") -> object:
+    def new_botocore_dynamodb_client(self, key: str = "", secret: str = "", region: str = "") -> object:
         import botocore.session
+
         session = botocore.session.get_session()
         if not secret:
             secret = self._config.aws_secret_access_key
@@ -203,7 +214,24 @@ class AlternatorLB:
             key = self._config.aws_access_key_id
         if not region:
             region = self._config.aws_region_name
-        ddb = session.create_client('dynamodb', region_name=region, aws_access_key_id=key, aws_secret_access_key=secret)
+
+        ddb = session.create_client(
+            'dynamodb', region_name=region, aws_access_key_id=key, aws_secret_access_key=secret)
+        self.patch_dynamodb_client(ddb)
+        return ddb
+
+    def new_boto3_dynamodb_client(self, key: str = "", secret: str = "", region: str = "") -> object:
+        import boto3.session
+
+        if not secret:
+            secret = self._config.aws_secret_access_key
+        if not key:
+            key = self._config.aws_access_key_id
+        if not region:
+            region = self._config.aws_region_name
+
+        ddb = boto3.client('dynamodb', region_name=region,
+                           aws_access_key_id=key, aws_secret_access_key=secret)
         self.patch_dynamodb_client(ddb)
         return ddb
 
@@ -212,15 +240,18 @@ class AlternatorLB:
 
         current_resolver = getattr(client, '_ruleset_resolver', None)
         if not current_resolver:
-            raise Exception("looks like client is not a boto DynamoDB client, it has no _ruleset_resolver")
+            raise Exception(
+                "looks like client is not a boto DynamoDB client, it has no _ruleset_resolver")
         if current_resolver.__class__ != EndpointRulesetResolver:
             raise Exception("client._ruleset_resolver has unexpected class.")
 
         try:
             if not client.meta.config.region_name:
-                raise ValueError("client can't work properly with empty region name")
+                raise ValueError(
+                    "client can't work properly with empty region name")
         except AttributeError:
-            raise Exception("client has no meta.config.region_name, looks like it's not a botocore DynamoDB client.")
+            raise Exception(
+                "client has no meta.config.region_name, looks like it's not a botocore DynamoDB client.")
 
         orig = current_resolver.construct_endpoint
 
@@ -239,4 +270,3 @@ class AlternatorLB:
                 headers=endpoint_info.headers)
 
         setattr(current_resolver, 'construct_endpoint', construct_endpoint)
-

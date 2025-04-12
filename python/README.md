@@ -31,7 +31,7 @@ This library periodically syncs list of active nodes with the cluster.
 import alternator_lb
 
 lb = alternator_lb.AlternatorLB(['x.x.x.x'], port=9999)
-dynamodb = lb.new_dynamodb_client()
+dynamodb = lb.new_botocore_dynamodb_client()
 
 dynamodb.delete_table(TableName="SomeTable")
 ```

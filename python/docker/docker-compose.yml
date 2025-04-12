@@ -1,22 +1,22 @@
 networks:
   public:
-    name: alb_golang_network
+    name: alb_python_network
     driver: bridge
     ipam:
       driver: default
       config:
-        - subnet: 172.41.0.0/16
+        - subnet: 172.43.0.0/16
 
 services:
   scylla1:
     image: scylladb/scylla:2025.1
     networks:
       public:
-        ipv4_address: 172.41.0.2
+        ipv4_address: 172.43.0.2
     command: |
-      --rpc-address 172.41.0.2
-      --listen-address 172.41.0.2
-      --seeds 172.41.0.2
+      --rpc-address 172.43.0.2
+      --listen-address 172.43.0.2
+      --seeds 172.43.0.2
       --skip-wait-for-gossip-to-settle 0
       --ring-delay-ms 0
       --smp 2
@@ -36,11 +36,11 @@ services:
     image: scylladb/scylla:2025.1
     networks:
       public:
-        ipv4_address: 172.41.0.3
+        ipv4_address: 172.43.0.3
     command: |
-      --rpc-address 172.41.0.3
-      --listen-address 172.41.0.3
-      --seeds 172.41.0.2
+      --rpc-address 172.43.0.3
+      --listen-address 172.43.0.3
+      --seeds 172.43.0.2
       --skip-wait-for-gossip-to-settle 0
       --ring-delay-ms 0
       --smp 2
@@ -63,11 +63,11 @@ services:
     image: scylladb/scylla:2025.1
     networks:
       public:
-        ipv4_address: 172.41.0.4
+        ipv4_address: 172.43.0.4
     command: |
-      --rpc-address 172.41.0.4
-      --listen-address 172.41.0.4
-      --seeds 172.41.0.2,172.41.0.3
+      --rpc-address 172.43.0.4
+      --listen-address 172.43.0.4
+      --seeds 172.43.0.2,172.43.0.3
       --skip-wait-for-gossip-to-settle 0
       --ring-delay-ms 0
       --smp 2

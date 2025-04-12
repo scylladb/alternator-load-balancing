@@ -18,3 +18,7 @@ csharp/**/[Bb]uild[Ll]og.*
 go/bin/
 go/test/scylla/db.crt
 go/test/scylla/db.key
+
+python/bin/
+python/docker/scylla/db.crt
+python/docker/scylla/db.key

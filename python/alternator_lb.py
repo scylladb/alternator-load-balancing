@@ -14,23 +14,30 @@ class ExecutorPool:
     def __init__(self):
         self._executor = None
         self._ref_count = 0
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def create_executor():
+        return concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     def add_ref(self):
-        self._ref_count += 1
-        if self._executor is None:
-            self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        with self._lock:
+            self._ref_count += 1
+            if self._executor is None:
+                self._executor = self.create_executor()
 
     def remove_ref(self):
-        self._ref_count -= 1
-        if self._ref_count <= 0:
+        with self._lock:
+            self._ref_count -= 1
+            if self._ref_count > 0:
+                return
             (pool, self._executor) = (self._executor, None)
             if pool is not None:
                 pool.shutdown(wait=False)
-        if self._executor is not None:
-            self._executor.shutdown(wait=False)
 
     def submit(self, fn, *args, **kwargs):
         return self._executor.submit(fn, *args, **kwargs)
+
 
 @dataclass
 class Config:

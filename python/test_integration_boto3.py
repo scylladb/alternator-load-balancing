@@ -1,28 +1,29 @@
-import unittest
+from alternator_lb import AlternatorLB, Config
 
-from alternator_lb import AlternatorLB
 
-class AlternatorBotocoreTests(unittest.TestCase):
-    initial_nodes = ['172.17.0.2']
+class TestAlternatorBotocore:
+    initial_nodes = ['172.43.0.2']
+    http_port = 9998
+    https_port = 9999
 
     def test_check_if_rack_datacenter_feature_is_supported(self):
-        lb = AlternatorLB(self.initial_nodes, 'http', 9999, datacenter="fake_dc")
+        lb = AlternatorLB(Config(nodes=self.initial_nodes, port=self.http_port, datacenter="fake_dc"))
         lb.check_if_rack_datacenter_feature_is_supported()
 
     def test_check_if_rack_and_datacenter_set_correctly_wrong_dc(self):
-        lb = AlternatorLB(self.initial_nodes, 'http', 9999, datacenter="fake_dc")
+        lb = AlternatorLB(Config(nodes=self.initial_nodes, port=self.http_port, datacenter="fake_dc"))
         try:
             lb.check_if_rack_and_datacenter_set_correctly()
-            self.fail("Expected ValueError")
+            assert False, "Expected ValueError"
         except ValueError:
             pass
 
     def test_check_if_rack_and_datacenter_set_correctly_correct_dc(self):
-        lb = AlternatorLB(self.initial_nodes, 'http', 9999, datacenter="datacenter1")
+        lb = AlternatorLB(Config(nodes=self.initial_nodes, port=self.http_port, datacenter="datacenter1"))
         lb.check_if_rack_and_datacenter_set_correctly()
 
     def _run_create_add_delete_test(self, dynamodb):
-        lb = AlternatorLB(self.initial_nodes, port=9999)
+        lb = AlternatorLB(Config(nodes=self.initial_nodes, port=self.http_port))
         lb.patch_dynamodb_client(dynamodb)
 
         TABLE_NAME = "TestTable"

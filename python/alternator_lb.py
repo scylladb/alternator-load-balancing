@@ -49,7 +49,10 @@ class Config:
     port: int = 8080
     datacenter: str = None
     rack: str = None
-    client_cert: str = None
+    client_cert_file: str = None
+    client_key_file: str = None
+    connect_timeout: int = 3600
+    max_pool_connections: int = 200
     aws_region_name: str = "fake-alternator-lb-region"
     aws_access_key_id: str = "fake-alternator-lb-access-key-id"
     aws_secret_access_key: str = "fake-alternator-lb-secret-access-key"
@@ -244,9 +247,14 @@ class AlternatorLB:
             "connect_timeout": self._config.connect_timeout,
             "max_pool_connections": self._config.max_pool_connections,
         }
+        if self._config.client_cert_file:
+            if self._config.client_key_file:
+                config_params["client_cert"] = (self._config.client_cert_file, self._config.client_key_file)
+            else:
+                config_params["client_cert"] = self._config.client_cert_file
         return config.Config(**config_params)
 
-    def new_botocore_dynamodb_client(self, key: str = "", secret: str = "", region: str = ""):
+    def new_botocore_dynamodb_client(self, key: str = "", secret: str = "", region: str = "") -> object:
         import botocore.session
 
         session = botocore.session.get_session()

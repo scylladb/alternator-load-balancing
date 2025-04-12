@@ -7,9 +7,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 from urllib.parse import urlparse, urlunparse
-
-from botocore.endpoint_provider import RuleSetEndpoint
-import botocore.session
+from dataclasses import dataclass
 
 
 class ExecutorPool:
@@ -33,6 +31,29 @@ class ExecutorPool:
 
     def submit(self, fn, *args, **kwargs):
         return self._executor.submit(fn, *args, **kwargs)
+
+@dataclass
+class Config:
+    nodes: List[str]
+    schema: str = "http"
+    port: int = 8080
+    datacenter: str = None
+    rack: str = None
+    aws_region_name: str = "fake-alternator-lb-region"
+    aws_access_key_id: str = None
+    aws_secret_access_key: str = None
+    update_interval: int = 10
+
+    def _get_nodes(self) -> List[str]:
+        nodes = []
+        for node in self.nodes:
+            uri = urlunparse((self.schema, node + ":" + str(self.port), "", "", "", ""))
+            parsed_uri = urlparse(uri)
+            if not parsed_uri.scheme or not parsed_uri.netloc:
+                raise ValueError(f"Invalid URI: {uri}")
+            nodes.append(uri)
+        return nodes
+
 
 
 class AlternatorLB:
@@ -64,37 +85,18 @@ class AlternatorLB:
     def __del__(self):
         self._pool.remove_ref()
 
-    def __init__(
-            self,
-            initial_nodes: List[str],
-            scheme: str = "http",
-            port: int = 8080,
-            datacenter: str = None,
-            rack: str = None,
-            update_interval: int = 10,
-    ):
+    def __init__(self, config: Config):
         self._pool.add_ref()
-        if not initial_nodes:
+        self._config = config
+        if not self._config.nodes:
             raise ValueError("liveNodes cannot be null or empty")
 
-        self._alternator_scheme = scheme
-        self._alternator_port = port
-
-        initial_uri = []
-        for node in initial_nodes:
-            uri = urlunparse((scheme, node + ":" + str(port), "", "", "", ""))
-            self._validate_uri(uri)
-            initial_uri.append(uri)
-
-        self._initial_nodes = initial_uri
-        self._live_nodes = initial_uri[:]
+        self._initial_nodes = config._get_nodes()
+        self._live_nodes = self._initial_nodes[:]
         self._live_nodes_lock = threading.Lock()
         self._next_live_node_index = 0
-        self._rack = rack
-        self._datacenter = datacenter
         self._updating = False
         self._next_update_time = 0
-        self._update_interval = update_interval
 
     @staticmethod
     def _validate_uri(uri: str):
@@ -140,7 +142,7 @@ class AlternatorLB:
         if new_hosts:
             with self._live_nodes_lock:
                 self._live_nodes = new_hosts
-                self._next_update_time = time.time() + self._update_interval
+                self._next_update_time = time.time() + self._config.update_interval
                 self._updating = False
             self._logger.debug(f"Updated hosts to {self._live_nodes}")
 
@@ -157,19 +159,19 @@ class AlternatorLB:
             return []
 
     def _host_to_uri(self, host: str) -> str:
-        return f"{self._alternator_scheme}://{host}:{self._alternator_port}"
+        return f"{self._config.schema}://{host}:{self._config.port}"
 
     def _next_as_local_nodes_uri(self) -> str:
         query = ""
-        if self._rack:
-            query += f"rack={self._rack}"
-        if self._datacenter:
-            query += ("&" if query else "") + f"dc={self._datacenter}"
+        if self._config.rack:
+            query += f"rack={self._config.rack}"
+        if self._config.datacenter:
+            query += ("&" if query else "") + f"dc={self._config.datacenter}"
 
         return self._next_as_uri("/localnodes", query)
 
     def check_if_rack_and_datacenter_set_correctly(self):
-        if not self._rack and not self._datacenter:
+        if not self._config.rack and not self._config.datacenter:
             return
 
         nodes = self._get_nodes(self._next_as_local_nodes_uri())
@@ -192,8 +194,15 @@ class AlternatorLB:
         with self._live_nodes_lock:
             return self._live_nodes[:]
 
-    def new_dynamodb_client(self, key: str = "key", secret: str = "secret", region: str = "us-east-1") -> object:
+    def new_dynamodb_client(self, key: str = "", secret: str = "", region: str = "") -> object:
+        import botocore.session
         session = botocore.session.get_session()
+        if not secret:
+            secret = self._config.aws_secret_access_key
+        if not key:
+            key = self._config.aws_access_key_id
+        if not region:
+            region = self._config.aws_region_name
         ddb = session.create_client('dynamodb', region_name=region, aws_access_key_id=key, aws_secret_access_key=secret)
         self.patch_dynamodb_client(ddb)
         return ddb
@@ -220,6 +229,7 @@ class AlternatorLB:
                 call_args,
                 request_context,
         ):
+            from botocore.endpoint_provider import RuleSetEndpoint
             endpoint_info = orig(operation_model, call_args, request_context)
             if "dynamodb." not in endpoint_info.url:
                 return endpoint_info

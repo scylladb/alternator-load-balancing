@@ -15,7 +15,6 @@ def test_executor_pool():
         def shutdown(self, *args, **kwargs):
             pass
 
-
     class ExecutorPoolPatch(ExecutorPool):
         @classmethod
         def create_executor(cls):
@@ -55,10 +54,3 @@ def test_executor_pool():
         gc.collect()
 
         assert SomeClass.pool.get_executor() is None
-
-
-
-
-
-
-

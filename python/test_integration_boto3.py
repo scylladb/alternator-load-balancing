@@ -7,11 +7,13 @@ class TestAlternatorBotocore:
     https_port = 9999
 
     def test_check_if_rack_datacenter_feature_is_supported(self):
-        lb = AlternatorLB(Config(nodes=self.initial_nodes, port=self.http_port, datacenter="fake_dc"))
+        lb = AlternatorLB(Config(nodes=self.initial_nodes,
+                          port=self.http_port, datacenter="fake_dc"))
         lb.check_if_rack_datacenter_feature_is_supported()
 
     def test_check_if_rack_and_datacenter_set_correctly_wrong_dc(self):
-        lb = AlternatorLB(Config(nodes=self.initial_nodes, port=self.http_port, datacenter="fake_dc"))
+        lb = AlternatorLB(Config(nodes=self.initial_nodes,
+                          port=self.http_port, datacenter="fake_dc"))
         try:
             lb.check_if_rack_and_datacenter_set_correctly()
             assert False, "Expected ValueError"
@@ -19,11 +21,13 @@ class TestAlternatorBotocore:
             pass
 
     def test_check_if_rack_and_datacenter_set_correctly_correct_dc(self):
-        lb = AlternatorLB(Config(nodes=self.initial_nodes, port=self.http_port, datacenter="datacenter1"))
+        lb = AlternatorLB(Config(nodes=self.initial_nodes,
+                          port=self.http_port, datacenter="datacenter1"))
         lb.check_if_rack_and_datacenter_set_correctly()
 
     def _run_create_add_delete_test(self, dynamodb):
-        lb = AlternatorLB(Config(nodes=self.initial_nodes, port=self.http_port))
+        lb = AlternatorLB(
+            Config(nodes=self.initial_nodes, port=self.http_port))
         lb.patch_dynamodb_client(dynamodb)
 
         TABLE_NAME = "TestTable"
@@ -37,9 +41,12 @@ class TestAlternatorBotocore:
         print("Creating table...")
         dynamodb.create_table(
             TableName=TABLE_NAME,
-            KeySchema=[{'AttributeName': 'UserID', 'KeyType': 'HASH'}],  # Primary Key
-            AttributeDefinitions=[{'AttributeName': 'UserID', 'AttributeType': 'S'}],  # String Key
-            ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+            KeySchema=[{'AttributeName': 'UserID',
+                        'KeyType': 'HASH'}],  # Primary Key
+            AttributeDefinitions=[
+                {'AttributeName': 'UserID', 'AttributeType': 'S'}],  # String Key
+            ProvisionedThroughput={
+                'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
         )
         print(f"Table '{TABLE_NAME}' creation started.")
 
@@ -71,10 +78,11 @@ class TestAlternatorBotocore:
         import botocore.session
 
         # Create a DynamoDB client
-        self._run_create_add_delete_test(botocore.session.get_session().create_client('dynamodb', region_name='us-east-1'))
+        self._run_create_add_delete_test(botocore.session.get_session(
+        ).create_client('dynamodb', region_name='us-east-1', aws_access_key_id="fake-key-id", aws_secret_access_key="fake-key"))
 
     def test_boto3_create_add_delete(self):
         import boto3
 
-        self._run_create_add_delete_test(boto3.client('dynamodb', region_name='us-east-1'))
-
+        self._run_create_add_delete_test(
+            boto3.client('dynamodb', region_name='us-east-1', aws_access_key_id="fake-key-id", aws_secret_access_key="fake-key"))

@@ -1,3 +1,8 @@
+from unittest.mock import patch
+
+import urllib3.connection
+
+
 from alternator_lb import AlternatorLB, Config
 
 
@@ -20,23 +25,76 @@ class TestAlternatorBotocore:
         except ValueError:
             pass
 
+    def test_http_connection_persistent(self):
+        self._test_connection_persistent("http")
+
+    def test_https_connection_persistent(self):
+        self._test_connection_persistent("https")
+
+    def _test_connection_persistent(self, schema: str):
+        cnt = 0
+        if schema == "http":
+            original_init = urllib3.connection.HTTPConnection.__init__
+        else:
+            original_init = urllib3.connection.HTTPSConnection.__init__
+
+        def wrapper(self, *args, **kwargs):
+            nonlocal cnt
+            nonlocal original_init
+            print(f'Wrapper: args={args}, kwargs={kwargs}')
+            cnt += 1
+            return original_init(self, *args, **kwargs)
+
+        if schema == "http":
+            patched = patch.object(
+                urllib3.connection.HTTPConnection, '__init__', new=wrapper)
+        else:
+            patched = patch.object(
+                urllib3.connection.HTTPSConnection, '__init__', new=wrapper)
+
+        with patched:
+            lb = AlternatorLB(Config(
+                schema=schema,
+                nodes=self.initial_nodes,
+                port=self.http_port if schema == "http" else self.https_port,
+                datacenter="fake_dc",
+                update_interval=0,
+            ))
+
+            dynamodb = lb.new_boto3_dynamodb_client()
+            try:
+                dynamodb.delete_table(TableName="FakeTable")
+            except Exception as e:
+                if e.__class__.__name__ != "ResourceNotFoundException":
+                    raise
+            assert cnt == 1
+            try:
+                dynamodb.delete_table(TableName="FakeTable")
+            except Exception as e:
+                if e.__class__.__name__ != "ResourceNotFoundException":
+                    raise
+            assert cnt == 1  # Connection should be carried over to another request
+
+            lb._update_live_nodes()
+            assert cnt == 2  # AlternatorLB uses different connection pool, so one more connection will be created
+            lb._update_live_nodes()
+            assert cnt == 2  # And it should be carried over to another attempt of pulling nodes
+
     def test_check_if_rack_and_datacenter_set_correctly_correct_dc(self):
         lb = AlternatorLB(Config(nodes=self.initial_nodes,
                           port=self.http_port, datacenter="datacenter1"))
         lb.check_if_rack_and_datacenter_set_correctly()
 
-    def _run_create_add_delete_test(self, dynamodb):
-        lb = AlternatorLB(
-            Config(nodes=self.initial_nodes, port=self.http_port))
-        lb.patch_dynamodb_client(dynamodb)
-
+    @staticmethod
+    def _run_create_add_delete_test(dynamodb):
         TABLE_NAME = "TestTable"
         ITEM_KEY = {'UserID': {'S': '123'}}
 
         try:
             dynamodb.delete_table(TableName=TABLE_NAME)
-        except Exception:
-            pass
+        except Exception as e:
+            if e.__class__.__name__ != "ResourceNotFoundException":
+                raise
 
         print("Creating table...")
         dynamodb.create_table(
@@ -75,14 +133,11 @@ class TestAlternatorBotocore:
         dynamodb.delete_item(TableName=TABLE_NAME, Key=ITEM_KEY)
 
     def test_botocore_create_add_delete(self):
-        import botocore.session
-
-        # Create a DynamoDB client
-        self._run_create_add_delete_test(botocore.session.get_session(
-        ).create_client('dynamodb', region_name='us-east-1', aws_access_key_id="fake-key-id", aws_secret_access_key="fake-key"))
+        lb = AlternatorLB(Config(nodes=self.initial_nodes,
+                          port=self.http_port, datacenter="datacenter1"))
+        self._run_create_add_delete_test(lb.new_botocore_dynamodb_client())
 
     def test_boto3_create_add_delete(self):
-        import boto3
-
-        self._run_create_add_delete_test(
-            boto3.client('dynamodb', region_name='us-east-1', aws_access_key_id="fake-key-id", aws_secret_access_key="fake-key"))
+        lb = AlternatorLB(Config(nodes=self.initial_nodes,
+                          port=self.http_port, datacenter="datacenter1"))
+        self._run_create_add_delete_test(lb.new_boto3_dynamodb_client())

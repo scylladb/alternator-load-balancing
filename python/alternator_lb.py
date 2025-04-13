@@ -1,3 +1,4 @@
+import ipaddress
 import threading
 import time
 import logging
@@ -7,6 +8,7 @@ from typing import List
 from urllib.parse import urlparse, urlunparse
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
+
 
 
 class ExecutorPool:
@@ -45,6 +47,7 @@ class Config:
     port: int = 8080
     datacenter: str = None
     rack: str = None
+    client_cert: str = None
     aws_region_name: str = "fake-alternator-lb-region"
     aws_access_key_id: str = "fake-alternator-lb-access-key-id"
     aws_secret_access_key: str = "fake-alternator-lb-secret-access-key"
@@ -105,10 +108,12 @@ class AlternatorLB:
         self._next_update_time = 0
 
     @staticmethod
-    def _validate_uri(uri: str):
-        parsed_uri = urlparse(uri)
-        if not parsed_uri.scheme or not parsed_uri.netloc:
-            raise ValueError(f"Invalid URI: {uri}")
+    def _validate_node(node: str) -> bool:
+        try:
+            ipaddress.ip_address(node)
+            return True
+        except ValueError:
+            return False
 
     def _update_nodes_if_needed(self):
         if self._updating:
@@ -162,7 +167,7 @@ class AlternatorLB:
                 return []
 
             nodes = response.json()
-            return [self._host_to_uri(host) for host in nodes if host]
+            return [self._host_to_uri(host) for host in nodes if host and self._validate_node(host)]
         except Exception as e:
             self._logger.warning(f"Failed to fetch nodes from {uri}: {e}")
             return []

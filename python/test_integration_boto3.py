@@ -133,12 +133,17 @@ class TestAlternatorBotocore:
         dynamodb.delete_item(TableName=TABLE_NAME, Key=ITEM_KEY)
 
     def test_botocore_create_add_delete(self):
-        lb = AlternatorLB(Config(nodes=self.initial_nodes,
-                          port=self.http_port, datacenter="datacenter1"))
+        lb = AlternatorLB(Config(
+            nodes=self.initial_nodes,
+            port=self.http_port,
+            datacenter="datacenter1",
+        ))
         self._run_create_add_delete_test(lb.new_botocore_dynamodb_client())
 
     def test_boto3_create_add_delete(self):
-        lb = AlternatorLB(Config(nodes=self.initial_nodes,
-                          port=self.http_port, datacenter="datacenter1"))
-        lb = AlternatorLB(Config(nodes=self.initial_nodes, port=self.http_port, datacenter="datacenter1"))
+        lb = AlternatorLB(Config(
+            nodes=self.initial_nodes,
+            port=self.http_port,
+            datacenter="datacenter1",
+        ))
         self._run_create_add_delete_test(lb.new_boto3_dynamodb_client())

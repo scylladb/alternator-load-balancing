@@ -51,8 +51,6 @@ class Config:
     rack: str = None
     client_cert_file: str = None
     client_key_file: str = None
-    connect_timeout: int = 3600
-    max_pool_connections: int = 200
     aws_region_name: str = "fake-alternator-lb-region"
     aws_access_key_id: str = "fake-alternator-lb-access-key-id"
     aws_secret_access_key: str = "fake-alternator-lb-secret-access-key"

@@ -28,37 +28,21 @@ This library periodically syncs list of active nodes with the cluster.
 ### Create new dynamodb botocore client
 
 ```python
-import alternator_lb
+from alternator_lb import AlternatorLB, Config
 
-lb = alternator_lb.AlternatorLB(['x.x.x.x'], port=9999)
+lb = AlternatorLB(Config(nodes=['x.x.x.x'], port=9999))
 dynamodb = lb.new_botocore_dynamodb_client()
 
 dynamodb.delete_table(TableName="SomeTable")
 ```
 
-### Patch existing dynamodb botocore client
+### Create new dynamodb boto3 client
 
 ```python
-import alternator_lb
-import botocore.session
+from alternator_lb import AlternatorLB, Config
 
-lb = alternator_lb.AlternatorLB(['x.x.x.x'], port=9999)
-session = botocore.session.get_session()
-dynamodb = session.create_client('dynamodb', region_name='us-east-1')
-lb.patch_dynamodb_client(dynamodb)
-
-dynamodb.delete_table(TableName="SomeTable")
-```
-
-### Patch existing dynamodb boto3 client
-
-```python
-import alternator_lb
-import boto3
-
-lb = alternator_lb.AlternatorLB(['x.x.x.x'], port=9999)
-dynamodb = boto3.client('dynamodb', region_name='us-east-1')
-lb.patch_dynamodb_client(dynamodb)
+lb = AlternatorLB(Config(nodes=['x.x.x.x'], port=9999))
+dynamodb = lb.new_boto3_dynamodb_client()
 
 dynamodb.delete_table(TableName="SomeTable")
 ```

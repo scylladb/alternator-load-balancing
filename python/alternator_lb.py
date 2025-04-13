@@ -273,7 +273,7 @@ class AlternatorLB:
             verify=False,
             config=self._init_botocore_config(),
         )
-        self.patch_dynamodb_client(ddb)
+        self._patch_dynamodb_client(ddb)
         return ddb
 
     def new_boto3_dynamodb_client(self, key: str = "", secret: str = "", region: str = ""):
@@ -294,10 +294,10 @@ class AlternatorLB:
             verify=False,
             config=self._init_botocore_config(),
         )
-        self.patch_dynamodb_client(ddb)
+        self._patch_dynamodb_client(ddb)
         return ddb
 
-    def patch_dynamodb_client(self, client):
+    def _patch_dynamodb_client(self, client):
         from botocore.regions import EndpointRulesetResolver
 
         current_resolver = getattr(client, '_ruleset_resolver', None)

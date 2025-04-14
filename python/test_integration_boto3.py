@@ -26,12 +26,14 @@ class TestAlternatorBotocore:
             pass
 
     def test_http_connection_persistent(self):
-        self._test_connection_persistent("http")
+        self._test_connection_persistent("http", 1)
+        self._test_connection_persistent("http", 2)
 
     def test_https_connection_persistent(self):
-        self._test_connection_persistent("https")
+        self._test_connection_persistent("https", 1)
+        self._test_connection_persistent("https", 2)
 
-    def _test_connection_persistent(self, schema: str):
+    def _test_connection_persistent(self, schema: str, max_pool_connections: int):
         cnt = 0
         if schema == "http":
             original_init = urllib3.connection.HTTPConnection.__init__
@@ -41,7 +43,6 @@ class TestAlternatorBotocore:
         def wrapper(self, *args, **kwargs):
             nonlocal cnt
             nonlocal original_init
-            print(f'Wrapper: args={args}, kwargs={kwargs}')
             cnt += 1
             return original_init(self, *args, **kwargs)
 
@@ -59,6 +60,7 @@ class TestAlternatorBotocore:
                 port=self.http_port if schema == "http" else self.https_port,
                 datacenter="fake_dc",
                 update_interval=0,
+                max_pool_connections=max_pool_connections,
             ))
 
             dynamodb = lb.new_boto3_dynamodb_client()

@@ -56,7 +56,7 @@ class Config:
     aws_secret_access_key: str = "fake-alternator-lb-secret-access-key"
     update_interval: int = 10
     connect_timeout: int = 3600
-    max_pool_connections: int = 200
+    max_pool_connections: int = 10
 
     def _get_nodes(self) -> List[str]:
         nodes = []
@@ -123,12 +123,16 @@ class AlternatorLB:
                 pool = urllib3.HTTPConnectionPool(
                     host=parsed.hostname,
                     port=parsed.port,
+                    timeout=self._config.connect_timeout,
+                    maxsize=self._config.max_pool_connections,
                 )
             else:
                 pool = urllib3.HTTPSConnectionPool(
                     host=parsed.hostname,
                     port=parsed.port,
                     cert_reqs='CERT_NONE',
+                    timeout=self._config.connect_timeout,
+                    maxsize=self._config.max_pool_connections,
                 )
             self._conn_pools[parsed.netloc] = pool
             return pool
@@ -192,7 +196,8 @@ class AlternatorLB:
             url = parsed.path
             if parsed.query:
                 url += "?" + parsed.query
-            response = self._get_connection_pool(parsed).request("GET", url)
+            pool = self._get_connection_pool(parsed)
+            response = pool.request("GET", url)
             if response.status != 200:
                 return []
 
@@ -241,13 +246,14 @@ class AlternatorLB:
 
     def _init_botocore_config(self) -> config.Config:
         config_params = {
-            "tcp_keepalive": True,
+            "tcp_keepalive": bool(self._config.max_pool_connections),
             "connect_timeout": self._config.connect_timeout,
             "max_pool_connections": self._config.max_pool_connections,
         }
         if self._config.client_cert_file:
             if self._config.client_key_file:
-                config_params["client_cert"] = (self._config.client_cert_file, self._config.client_key_file)
+                config_params["client_cert"] = (
+                    self._config.client_cert_file, self._config.client_key_file)
             else:
                 config_params["client_cert"] = self._config.client_cert_file
         return config.Config(**config_params)

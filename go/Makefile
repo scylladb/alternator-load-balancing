@@ -118,6 +118,14 @@ scylla-up: .prepare-cert $(GOBIN)/docker-compose
 scylla-down: $(GOBIN)/docker-compose
 	$(COMPOSE) down
 
+.PHONY: scylla-kill
+scylla-kill: $(GOBIN)/docker-compose
+	$(COMPOSE) kill
+
+.PHONY: scylla-rm
+scylla-rm: $(GOBIN)/docker-compose
+	$(COMPOSE) rm -f
+
 $(GOBIN)/golangci-lint: Makefile
 	$(call dl_tgz,golangci-lint,$(GOLANGCI_DOWNLOAD_URL))
 

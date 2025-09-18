@@ -22,3 +22,7 @@ go/test/scylla/db.key
 python/bin/
 python/docker/scylla/db.crt
 python/docker/scylla/db.key
+
+# Claude / AI assistant metadata
+CLAUDE.md
+.claude/

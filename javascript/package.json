@@ -1,0 +1,36 @@
+{
+  "name": "alternator-load-balancing-js",
+  "version": "1.0.0",
+  "description": "Client-side load balancing for ScyllaDB Alternator - JavaScript implementation",
+  "main": "Alternator.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "jest test_unit*.js",
+    "test:integration": "jest test_integration*.js",
+    "test:all": "jest",
+    "lint": "eslint *.js",
+    "lint:fix": "eslint *.js --fix"
+  },
+  "keywords": [
+    "scylladb",
+    "alternator",
+    "dynamodb",
+    "load-balancing",
+    "aws-sdk"
+  ],
+  "author": "ScyllaDB",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/test_*.js"
+    ]
+  }
+}

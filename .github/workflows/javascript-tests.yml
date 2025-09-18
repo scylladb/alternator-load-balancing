@@ -1,0 +1,46 @@
+name: 'JS - Tests'
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - javascript/**
+  pull_request:
+    branches: [ master ]
+    paths:
+      - javascript/**
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: ./javascript
+jobs:
+  test:
+    name: JS - Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 18
+
+      - name: Run linters
+        run: |
+          make check
+
+      - name: Run unit tests
+        run: |
+          make test-unit
+
+      - name: Run integration tests
+        run: |
+          make test-integration
+
+      - name: Stop the cluster
+        if: ${{ always() }}
+        run: |
+         make scylla-kill

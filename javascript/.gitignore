@@ -1,0 +1,9 @@
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+bin/
+docker/scylla/db.key
+docker/scylla/db.crt

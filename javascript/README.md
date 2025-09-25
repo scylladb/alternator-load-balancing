@@ -28,6 +28,61 @@ Periodically, one of the nodes will be contacted to retrieve the cluster topolog
 
 It's enough to provide a single Alternator node to the initialization function, as the list of active nodes is periodically refreshed in the background.
 
+## Development
+
+### Installation
+
+Install dependencies:
+```bash
+npm install
+```
+
+### Testing
+
+Run all tests:
+```bash
+make test
+```
+
+Run only unit tests:
+```bash
+make unit-test
+```
+
+Run integration tests (requires ScyllaDB cluster):
+```bash
+make integration-test
+```
+
+### Linting
+
+Check code style:
+```bash
+make check
+```
+
+Fix code style issues:
+```bash
+make fix
+```
+
+### ScyllaDB Cluster Management
+
+Start a local ScyllaDB cluster for testing:
+```bash
+make scylla-up
+```
+
+Stop the cluster:
+```bash
+make scylla-down
+```
+
+Clean up cluster resources:
+```bash
+make scylla-clean
+```
+
 ## Details
 
 Alternator load balancing for javascript works by overriding internal methods of the stock javascript driver, which causes the requests to different Alternator nodes. Initially, the driver contacts one of the Alternator nodes and retrieves the list of active nodes which can be use to accept user requests. This list is perodically refreshed in order to ensure that any topology changes are taken into account. Once a client sends a request, the load balancing layer picks one of the active Alternator nodes as the target. Currently, nodes are picked in a round-robin fashion.

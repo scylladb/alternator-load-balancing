@@ -22,8 +22,9 @@ var done = false;
 var updatePromise;
 var enableBackgroundUpdates = true;
 
-var httpAgent = new http.Agent;
-var httpsAgent = new https.Agent;
+const agentOpts = { keepAlive: true };
+var httpAgent = new http.Agent(agentOpts);
+var httpsAgent = new https.Agent(agentOpts);
 
 function setupAgent(agent) {
     var oldCreateConnection = agent.createConnection;

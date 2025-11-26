@@ -409,7 +409,9 @@ public class AlternatorLiveNodes extends Thread {
   }
 
   /**
-   * <p>pickSupportedDatacenterRack.</p>
+   * Creates an AlternatorLiveNodes instance with datacenter/rack configuration that is supported by the server.
+   * This method validates the configuration and falls back gracefully if the server doesn't support
+   * datacenter/rack filtering or if the specified datacenter/rack doesn't exist.
    *
    * @param seedURI a {@link java.net.URI} object
    * @param datacenter a {@link java.lang.String} object

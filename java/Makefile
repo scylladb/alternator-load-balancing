@@ -8,17 +8,6 @@ ifdef IS_CICD
     mvn = mvn --no-transfer-progress
 endif
 
-define dl_bin
-	@if ! $(1) 2>/dev/null 1>&2; then
-		[ -d "$(BIN)" ] || mkdir "$(BIN)";
-		if [ ! -f "$(BIN)/$(1)" ]; then
-			echo "Downloading $(BIN)/$(1)";
-			curl --progress-bar -L $(2) --output "$(BIN)/$(1)";
-			chmod +x "$(BIN)/$(1)";
-		fi;
-	fi
-endef
-
 MAKEFILE_PATH := $(abspath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 BIN := $(MAKEFILE_PATH)/bin
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')

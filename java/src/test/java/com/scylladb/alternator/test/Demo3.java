@@ -2,7 +2,8 @@ package com.scylladb.alternator.test;
 
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
-import com.scylladb.alternator.AlternatorEndpointProvider;
+import com.scylladb.alternator.common.AlternatorConfig;
+import com.scylladb.alternator.sdkv2.AlternatorDynamoDbAsyncClient;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
@@ -97,18 +98,32 @@ public class Demo3 {
     logger.addHandler(handler);
     logger.setUseParentHandlers(false);
 
-    DynamoDbAsyncClientBuilder b = DynamoDbAsyncClient.builder().region(region);
     ExecutorService executor = newFixedThreadPool(threads);
     ClientAsyncConfiguration cas =
         ClientAsyncConfiguration.builder()
             .advancedOption(SdkAdvancedAsyncClientOption.FUTURE_COMPLETION_EXECUTOR, executor)
             .build();
-    b.asyncConfiguration(cas);
+
+    // Build AlternatorConfig if datacenter or rack is specified
+    AlternatorConfig.Builder configBuilder = AlternatorConfig.builder();
+    if (datacenter != null && !datacenter.isEmpty()) {
+      configBuilder.withDatacenter(datacenter);
+    }
+    if (rack != null && !rack.isEmpty()) {
+      configBuilder.withRack(rack);
+    }
+    AlternatorConfig config = configBuilder.build();
+
+    // Build the async client using AlternatorDynamoDbAsyncClient
+    AlternatorDynamoDbAsyncClient.AlternatorDynamoDbAsyncClientBuilder b =
+        AlternatorDynamoDbAsyncClient.builder()
+            .region(region)
+            .asyncConfiguration(cas)
+            .withAlternatorConfig(config);
 
     if (endpoint != null) {
       URI uri = URI.create(endpoint);
-      AlternatorEndpointProvider alternatorEndpointProvider =
-          new AlternatorEndpointProvider(uri, datacenter, rack);
+      b.endpointOverride(uri);
 
       if (trustSSL != null && trustSSL.booleanValue()) {
         // In our test setup, the Alternator HTTPS server set up with a
@@ -123,7 +138,6 @@ public class Demo3 {
                         .build());
         b.httpClient(http);
       }
-      b.endpointProvider(alternatorEndpointProvider);
     }
 
     if (user != null) {

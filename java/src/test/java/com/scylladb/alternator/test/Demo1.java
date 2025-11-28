@@ -16,7 +16,8 @@ import com.amazonaws.services.dynamodbv2.model.KeyType;
 import com.amazonaws.services.dynamodbv2.model.ListTablesResult;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
-import com.scylladb.alternator.AlternatorRequestHandler;
+import com.scylladb.alternator.common.AlternatorConfig;
+import com.scylladb.alternator.sdkv1.AlternatorDynamoDBClientBuilder;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.cert.X509Certificate;
@@ -51,19 +52,21 @@ public class Demo1 {
     return new DynamoDB(client);
   }
 
-  // And this is the Alternator-specific way to get a DynamoDB connection
-  // which load-balances several Scylla nodes.
-  static DynamoDB getAlternatorClient(
-      URI uri, AWSCredentialsProvider myCredentials, String datacenter, String rack) {
-    AlternatorRequestHandler handler = new AlternatorRequestHandler(uri, datacenter, rack);
+  static DynamoDB getAlternatorClientWithBuilder(
+      URI url, AWSCredentialsProvider myCredentials, String datacenter, String rack) {
+    AlternatorConfig.Builder builder = AlternatorConfig.builder();
+    if (datacenter != null && !datacenter.isEmpty()) {
+      builder.withDatacenter(datacenter);
+    }
+    if (rack != null && !rack.isEmpty()) {
+      builder.withRack(rack);
+    }
     AmazonDynamoDB client =
-        AmazonDynamoDBClientBuilder.standard()
-            // The endpoint doesn't matter, we will override it anyway in the
-            // RequestHandler, but without setting it the library will complain
-            // if "region" isn't set in the configuration file.
-            .withRegion("region-doesnt-matter")
-            .withRequestHandlers(handler)
+        AlternatorDynamoDBClientBuilder.standard()
+            .withEndpointConfiguration(
+                new AwsClientBuilder.EndpointConfiguration(url.toString(), "region-doesnt-matter"))
             .withCredentials(myCredentials)
+            .withAlternatorConfig(builder.build())
             .build();
     return new DynamoDB(client);
   }
@@ -131,12 +134,13 @@ public class Demo1 {
     // signed certficate, so we need to disable certificate checking.
     // Obviously, this doesn't need to be done in production code.
     disableCertificateChecks();
-
     AWSCredentialsProvider myCredentials =
         new AWSStaticCredentialsProvider(new BasicAWSCredentials(user, pass));
+
     DynamoDB ddb;
     if (disableLoadBalancing == null || !disableLoadBalancing) {
-      ddb = getAlternatorClient(URI.create(endpoint), myCredentials, datacenter, rack);
+      // Using the builder helper for cleaner code - no need to create credentials separately
+      ddb = getAlternatorClientWithBuilder(URI.create(endpoint), myCredentials, datacenter, rack);
     } else {
       ddb = getTraditionalClient(URI.create(endpoint), myCredentials);
     }

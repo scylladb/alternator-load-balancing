@@ -1,6 +1,7 @@
 package com.scylladb.alternator.test;
 
-import com.scylladb.alternator.AlternatorEndpointProvider;
+import com.scylladb.alternator.common.AlternatorConfig;
+import com.scylladb.alternator.sdkv2.AlternatorDynamoDbClient;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.cert.X509Certificate;
@@ -54,9 +55,9 @@ public class Demo2 {
 
   // And this is the Alternator-specific way to get a DynamoDB connection
   // which load-balances several Scylla nodes.
-  // Basically the only change is replacing the endpointOverride() call
-  // with its fixed endpoind URL, with an endpointProvider() call, giving
-  // an AlternatorEndpointProvider object.
+  // Using AlternatorDynamoDbClient.builder() provides a simplified API
+  // that automatically integrates the AlternatorEndpointProvider for
+  // client-side load balancing.
   static DynamoDbClient getAlternatorClient(
       URI url, AwsCredentialsProvider myCredentials, String datacenter, String rack) {
     // To support HTTPS connections to a test server *without* checking
@@ -68,13 +69,23 @@ public class Demo2 {
                 AttributeMap.builder()
                     .put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, true)
                     .build());
-    AlternatorEndpointProvider alternatorEndpointProvider =
-        new AlternatorEndpointProvider(url, datacenter, rack);
-    return DynamoDbClient.builder()
+
+    // Build AlternatorConfig if datacenter or rack is specified
+    AlternatorConfig.Builder configBuilder = AlternatorConfig.builder();
+    if (datacenter != null && !datacenter.isEmpty()) {
+      configBuilder.withDatacenter(datacenter);
+    }
+    if (rack != null && !rack.isEmpty()) {
+      configBuilder.withRack(rack);
+    }
+    AlternatorConfig config = configBuilder.build();
+
+    return AlternatorDynamoDbClient.builder()
+        .endpointOverride(url)
         .credentialsProvider(myCredentials)
         .httpClient(http)
         .region(Region.US_EAST_1) // unused, but if missing can result in error
-        .endpointProvider(alternatorEndpointProvider)
+        .withAlternatorConfig(config)
         .build();
   }
 

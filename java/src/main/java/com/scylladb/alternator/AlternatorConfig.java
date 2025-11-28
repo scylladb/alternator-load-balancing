@@ -1,4 +1,4 @@
-package com.scylladb.alternator.common;
+package com.scylladb.alternator;
 
 /**
  * Configuration class for Alternator load balancing settings. Contains datacenter and rack

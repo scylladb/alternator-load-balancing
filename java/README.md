@@ -96,13 +96,13 @@ The simplest way to use the Alternator load balancer is to use the `AlternatorDy
 which provides a familiar builder API that mirrors `AmazonDynamoDBClientBuilder`:
 
 ```java
-    import com.scylladb.alternator.sdkv1.AlternatorDynamoDBClientBuilder;
+    import com.scylladb.alternator.AlternatorDynamoDBClientBuilder;
 
-    AmazonDynamoDB client = AlternatorDynamoDBClientBuilder.standard()
-        .withEndpoint("https://127.0.0.1:8043")
-        .withCredentials("myusername", "mypassword")
-        .build();
-    DynamoDB dynamodb = new DynamoDB(client);
+AmazonDynamoDB client = AlternatorDynamoDBClientBuilder.standard()
+    .withEndpoint("https://127.0.0.1:8043")
+    .withCredentials("myusername", "mypassword")
+    .build();
+DynamoDB dynamodb = new DynamoDB(client);
 ```
 
 The `AlternatorDynamoDBClientBuilder` automatically integrates the `AlternatorRequestHandler`
@@ -110,14 +110,14 @@ to provide load balancing across all Alternator nodes. You can also configure da
 rack filtering:
 
 ```java
-    import com.scylladb.alternator.common.AlternatorConfig;
-    import com.scylladb.alternator.sdkv1.AlternatorDynamoDBClientBuilder;
+    import com.scylladb.alternator.AlternatorDynamoDBClientBuilder;
+import com.scylladb.alternator.AlternatorConfig;
 
-    // Using AlternatorConfig
-    AlternatorConfig config = AlternatorConfig.builder()
-        .withDatacenter("dc1")
-        .withRack("rack1")
-        .build();
+// Using AlternatorConfig
+AlternatorConfig config = AlternatorConfig.builder()
+    .withDatacenter("dc1")
+    .withRack("rack1")
+    .build();
 
     AmazonDynamoDB client = AlternatorDynamoDBClientBuilder.standard()
         .withEndpoint("https://127.0.0.1:8043")
@@ -203,15 +203,15 @@ The simplest way to use the Alternator load balancer is to use the `AlternatorDy
 which provides a familiar builder API that implements `DynamoDbClientBuilder`:
 
 ```java
-    import com.scylladb.alternator.sdkv2.AlternatorDynamoDbClient;
+    import com.scylladb.alternator.AlternatorDynamoDbClient;
 
-    static AwsCredentialsProvider myCredentials =
-        StaticCredentialsProvider.create(AwsBasicCredentials.create("myuser", "mypassword"));
+static AwsCredentialsProvider myCredentials =
+    StaticCredentialsProvider.create(AwsBasicCredentials.create("myuser", "mypassword"));
 
-    DynamoDbClient client = AlternatorDynamoDbClient.builder()
-        .endpointOverride(URI.create("https://127.0.0.1:8043"))
-        .credentialsProvider(myCredentials)
-        .build();
+DynamoDbClient client = AlternatorDynamoDbClient.builder()
+    .endpointOverride(URI.create("https://127.0.0.1:8043"))
+    .credentialsProvider(myCredentials)
+    .build();
 ```
 
 The `AlternatorDynamoDbClient` automatically integrates the `AlternatorEndpointProvider`
@@ -219,19 +219,19 @@ to provide load balancing across all Alternator nodes. You can also configure da
 rack filtering:
 
 ```java
-    import com.scylladb.alternator.common.AlternatorConfig;
-    import com.scylladb.alternator.sdkv2.AlternatorDynamoDbClient;
+    import com.scylladb.alternator.AlternatorConfig;
+import com.scylladb.alternator.AlternatorDynamoDbClient;
 
-    AlternatorConfig config = AlternatorConfig.builder()
-        .withDatacenter("dc1")
-        .withRack("rack1")
-        .build();
+AlternatorConfig config = AlternatorConfig.builder()
+    .withDatacenter("dc1")
+    .withRack("rack1")
+    .build();
 
-    DynamoDbClient client = AlternatorDynamoDbClient.builder()
-        .endpointOverride(URI.create("https://127.0.0.1:8043"))
-        .credentialsProvider(myCredentials)
-        .withAlternatorConfig(config)
-        .build();
+DynamoDbClient client = AlternatorDynamoDbClient.builder()
+    .endpointOverride(URI.create("https://127.0.0.1:8043"))
+    .credentialsProvider(myCredentials)
+    .withAlternatorConfig(config)
+    .build();
 ```
 
 #### Option 2: Using `AlternatorEndpointProvider` directly (Outdated)
@@ -282,33 +282,33 @@ The simplest way to create a `DynamoDbAsyncClient` with Alternator load balancin
 the `AlternatorDynamoDbAsyncClient.builder()`:
 
 ```java
-    import com.scylladb.alternator.sdkv2.AlternatorDynamoDbAsyncClient;
+    import com.scylladb.alternator.AlternatorDynamoDbAsyncClient;
 
-    static AwsCredentialsProvider myCredentials =
-        StaticCredentialsProvider.create(AwsBasicCredentials.create("myuser", "mypassword"));
+static AwsCredentialsProvider myCredentials =
+    StaticCredentialsProvider.create(AwsBasicCredentials.create("myuser", "mypassword"));
 
-    DynamoDbAsyncClient client = AlternatorDynamoDbAsyncClient.builder()
-        .endpointOverride(URI.create("https://127.0.0.1:8043"))
-        .credentialsProvider(myCredentials)
-        .build();
+DynamoDbAsyncClient client = AlternatorDynamoDbAsyncClient.builder()
+    .endpointOverride(URI.create("https://127.0.0.1:8043"))
+    .credentialsProvider(myCredentials)
+    .build();
 ```
 
 You can also configure datacenter and rack filtering:
 
 ```java
-    import com.scylladb.alternator.common.AlternatorConfig;
-    import com.scylladb.alternator.sdkv2.AlternatorDynamoDbAsyncClient;
+    import com.scylladb.alternator.AlternatorConfig;
+import com.scylladb.alternator.AlternatorDynamoDbAsyncClient;
 
-    AlternatorConfig config = AlternatorConfig.builder()
-        .withDatacenter("dc1")
-        .withRack("rack1")
-        .build();
+AlternatorConfig config = AlternatorConfig.builder()
+    .withDatacenter("dc1")
+    .withRack("rack1")
+    .build();
 
-    DynamoDbAsyncClient client = AlternatorDynamoDbAsyncClient.builder()
-        .endpointOverride(URI.create("https://127.0.0.1:8043"))
-        .credentialsProvider(myCredentials)
-        .withAlternatorConfig(config)
-        .build();
+DynamoDbAsyncClient client = AlternatorDynamoDbAsyncClient.builder()
+    .endpointOverride(URI.create("https://127.0.0.1:8043"))
+    .credentialsProvider(myCredentials)
+    .withAlternatorConfig(config)
+    .build();
 ```
 
 ##### Option 2: Using `AlternatorEndpointProvider` directly (Outdated)

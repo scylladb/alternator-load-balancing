@@ -1,21 +1,13 @@
-package com.scylladb.alternator.sdkv2;
-
-import com.scylladb.alternator.AlternatorEndpointProvider;
-import com.scylladb.alternator.common.AlternatorConfig;
+package com.scylladb.alternator;
 
 import java.net.URI;
-import java.time.Duration;
-import java.util.List;
 import java.util.function.Consumer;
 
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.retry.RetryPolicy;
-import software.amazon.awssdk.endpoints.EndpointProvider;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.SdkHttpConfigurationOption;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;

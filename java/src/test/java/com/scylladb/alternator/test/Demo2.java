@@ -1,7 +1,7 @@
 package com.scylladb.alternator.test;
 
-import com.scylladb.alternator.common.AlternatorConfig;
-import com.scylladb.alternator.sdkv2.AlternatorDynamoDbClient;
+import com.scylladb.alternator.AlternatorConfig;
+import com.scylladb.alternator.AlternatorDynamoDbClient;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.cert.X509Certificate;

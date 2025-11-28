@@ -1,7 +1,4 @@
-package com.scylladb.alternator.sdkv2;
-
-import com.scylladb.alternator.AlternatorEndpointProvider;
-import com.scylladb.alternator.common.AlternatorConfig;
+package com.scylladb.alternator;
 
 import java.net.URI;
 import java.util.function.Consumer;

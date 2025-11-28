@@ -1,4 +1,4 @@
-package com.scylladb.alternator.sdkv1;
+package com.scylladb.alternator;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.SDKGlobalConfiguration;
@@ -12,8 +12,7 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.scylladb.alternator.common.AlternatorConfig;
-import com.scylladb.alternator.AlternatorRequestHandler;
+
 import java.net.URI;
 
 /**

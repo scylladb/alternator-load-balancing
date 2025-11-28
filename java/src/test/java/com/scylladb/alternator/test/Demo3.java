@@ -2,8 +2,8 @@ package com.scylladb.alternator.test;
 
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
-import com.scylladb.alternator.common.AlternatorConfig;
-import com.scylladb.alternator.sdkv2.AlternatorDynamoDbAsyncClient;
+import com.scylladb.alternator.AlternatorConfig;
+import com.scylladb.alternator.AlternatorDynamoDbAsyncClient;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
@@ -29,7 +29,6 @@ import software.amazon.awssdk.http.SdkHttpConfigurationOption;
 import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClientBuilder;
 import software.amazon.awssdk.services.dynamodb.model.DescribeEndpointsRequest;
 import software.amazon.awssdk.utils.AttributeMap;
 

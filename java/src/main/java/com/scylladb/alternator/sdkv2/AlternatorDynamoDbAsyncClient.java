@@ -9,11 +9,14 @@ import java.util.function.Consumer;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientAsyncConfiguration;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.internal.http.loader.DefaultSdkAsyncHttpClientBuilder;
+import software.amazon.awssdk.http.SdkHttpConfigurationOption;
 import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClientBuilder;
 import software.amazon.awssdk.services.dynamodb.endpoints.DynamoDbEndpointProvider;
+import software.amazon.awssdk.utils.AttributeMap;
 
 /**
  * Factory class for creating DynamoDB async clients with Alternator load balancing support.
@@ -85,6 +88,8 @@ public class AlternatorDynamoDbAsyncClient {
     private AlternatorConfig alternatorConfig;
     private URI seedUri;
     private Region region;
+    private boolean disableCertificateChecks = false;
+    private boolean httpClientSet = false;
 
     private AlternatorDynamoDbAsyncClientBuilder() {
       this.delegate = DynamoDbAsyncClient.builder();
@@ -110,6 +115,24 @@ public class AlternatorDynamoDbAsyncClient {
      */
     public AlternatorDynamoDbAsyncClientBuilder withAlternatorConfig(AlternatorConfig config) {
       this.alternatorConfig = config;
+      return this;
+    }
+
+    /**
+     * Disables SSL certificate validation for testing purposes.
+     *
+     * <p><strong>WARNING:</strong> This should only be used for testing with self-signed
+     * certificates. Never use this in production as it makes connections vulnerable to
+     * man-in-the-middle attacks.
+     *
+     * <p>This method configures the HTTP client to trust all certificates. If you've already
+     * set a custom HTTP client via {@link #httpClient(SdkAsyncHttpClient)} or
+     * {@link #httpClientBuilder(SdkAsyncHttpClient.Builder)}, this method will have no effect.
+     *
+     * @return this builder instance
+     */
+    public AlternatorDynamoDbAsyncClientBuilder withDisableCertificateChecks() {
+      this.disableCertificateChecks = true;
       return this;
     }
 
@@ -190,6 +213,7 @@ public class AlternatorDynamoDbAsyncClient {
      */
     @Override
     public AlternatorDynamoDbAsyncClientBuilder httpClient(SdkAsyncHttpClient httpClient) {
+      this.httpClientSet = true;
       delegate.httpClient(httpClient);
       return this;
     }
@@ -208,6 +232,7 @@ public class AlternatorDynamoDbAsyncClient {
     @Override
     public AlternatorDynamoDbAsyncClientBuilder httpClientBuilder(
         SdkAsyncHttpClient.Builder httpClientBuilder) {
+      this.httpClientSet = true;
       delegate.httpClientBuilder(httpClientBuilder);
       return this;
     }
@@ -421,6 +446,19 @@ public class AlternatorDynamoDbAsyncClient {
       // Initialize alternatorConfig with defaults if null
       if (alternatorConfig == null) {
         alternatorConfig = AlternatorConfig.builder().build();
+      }
+
+      // Configure async HTTP client to disable certificate checking if requested and no custom client was set
+      if (disableCertificateChecks && !httpClientSet) {
+        SdkAsyncHttpClient httpClient =
+            new DefaultSdkAsyncHttpClientBuilder()
+                .buildWithDefaults(
+                    AttributeMap.builder()
+                        .put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, true)
+                        .build());
+        delegate.httpClient(httpClient);
+      } else {
+        throw new IllegalStateException("you can't override client and have disableCertificateChecks at the same time");
       }
 
       // Create AlternatorEndpointProvider with the seed URI and DC/rack settings

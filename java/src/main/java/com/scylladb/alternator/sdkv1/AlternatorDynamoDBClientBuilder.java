@@ -1,6 +1,7 @@
 package com.scylladb.alternator.sdkv1;
 
 import com.amazonaws.ClientConfiguration;
+import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -65,6 +66,7 @@ public class AlternatorDynamoDBClientBuilder {
   private ClientConfiguration clientConfiguration;
   private RequestHandler2[] requestHandlers;
   private RequestMetricCollector metricsCollector;
+  private boolean disableCertificateChecks = false;
 
   private AlternatorDynamoDBClientBuilder() {}
 
@@ -172,6 +174,23 @@ public class AlternatorDynamoDBClientBuilder {
         .withDatacenter(this.alternatorConfig.getDatacenter())
         .withRack(rack)
         .build();
+    return this;
+  }
+
+  /**
+   * Disables SSL certificate validation for testing purposes.
+   *
+   * <p><strong>WARNING:</strong> This should only be used for testing with self-signed
+   * certificates. Never use this in production as it makes connections vulnerable to
+   * man-in-the-middle attacks.
+   *
+   * <p>This sets the {@code com.amazonaws.sdk.disableCertChecking} system property to disable
+   * certificate validation in the AWS SDK v1.
+   *
+   * @return this builder instance
+   */
+  public AlternatorDynamoDBClientBuilder withDisableCertificateChecks() {
+    this.disableCertificateChecks = true;
     return this;
   }
 
@@ -411,6 +430,11 @@ public class AlternatorDynamoDBClientBuilder {
 
     if (metricsCollector != null) {
       builder.withMetricsCollector(metricsCollector);
+    }
+
+    // Disable certificate checking if requested (for testing only)
+    if (disableCertificateChecks) {
+      System.setProperty(SDKGlobalConfiguration.DISABLE_CERT_CHECKING_SYSTEM_PROPERTY, "true");
     }
 
     // Note: endpointDiscoveryEnabled is tracked but not used since Alternator

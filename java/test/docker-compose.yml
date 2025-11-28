@@ -1,0 +1,89 @@
+networks:
+  public:
+    name: alb-java-bridge
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.39.0.0/16
+
+name: alb-java
+services:
+  scylla1:
+    image: scylladb/scylla:2025.1
+    networks:
+      public:
+        ipv4_address: 172.39.0.2
+    command: |
+      --rpc-address 172.39.0.2
+      --listen-address 172.39.0.2
+      --seeds 172.39.0.2
+      --skip-wait-for-gossip-to-settle 0
+      --ring-delay-ms 0
+      --smp 2
+      --memory 1G
+    healthcheck:
+      test: [ "CMD", "cqlsh", "scylla1", "-e", "select * from system.local WHERE key='local'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "19042"
+      - "9999"
+      - "9998"
+    volumes:
+      - ./scylla:/etc/scylla
+  scylla2:
+    image: scylladb/scylla:2025.1
+    networks:
+      public:
+        ipv4_address: 172.39.0.3
+    command: |
+      --rpc-address 172.39.0.3
+      --listen-address 172.39.0.3
+      --seeds 172.39.0.2
+      --skip-wait-for-gossip-to-settle 0
+      --ring-delay-ms 0
+      --smp 2
+      --memory 1G
+    healthcheck:
+      test: [ "CMD", "cqlsh", "scylla2", "-e", "select * from system.local WHERE key='local'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "19042"
+      - "9999"
+      - "9998"
+    depends_on:
+      scylla1:
+        condition: service_healthy
+    volumes:
+      - ./scylla:/etc/scylla
+  scylla3:
+    image: scylladb/scylla:2025.1
+    networks:
+      public:
+        ipv4_address: 172.39.0.4
+    command: |
+      --rpc-address 172.39.0.4
+      --listen-address 172.39.0.4
+      --seeds 172.39.0.2,172.39.0.3
+      --skip-wait-for-gossip-to-settle 0
+      --ring-delay-ms 0
+      --smp 2
+      --memory 1G
+    healthcheck:
+      test: [ "CMD", "cqlsh", "scylla3", "-e", "select * from system.local WHERE key='local'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "19042"
+      - "9999"
+      - "9998"
+    depends_on:
+      scylla2:
+        condition: service_healthy
+    volumes:
+      - ./scylla:/etc/scylla

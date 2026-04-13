@@ -2,7 +2,7 @@ name: Sync Jira Based on PR Events
 
 on:
   pull_request_target:
-    types: [opened, ready_for_review, review_requested, labeled, unlabeled, closed]
+    types: [opened, edited, ready_for_review, review_requested, labeled, unlabeled, closed]
 
 permissions:
   contents: read
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   jira-sync-pr-opened:
-    if: github.event.action == 'opened'
+    if: github.event.action == 'opened' || github.event.action == 'edited'
     uses: scylladb/github-automation/.github/workflows/main_jira_sync_pr_opened.yml@main
     secrets:
       caller_jira_auth: ${{ secrets.USER_AND_KEY_FOR_JIRA_AUTOMATION }}
@@ -28,14 +28,14 @@ jobs:
     secrets:
       caller_jira_auth: ${{ secrets.USER_AND_KEY_FOR_JIRA_AUTOMATION }}
 
-  jira-status-remove-label:
+  jira-sync-remove-label:
     if: github.event.action == 'unlabeled'
     uses: scylladb/github-automation/.github/workflows/main_jira_sync_remove_label.yml@main
     secrets:
       caller_jira_auth: ${{ secrets.USER_AND_KEY_FOR_JIRA_AUTOMATION }}
 
-  jira-status-pr-closed:
-    if: github.event.action == 'closed' 
+  jira-sync-pr-closed:
+    if: github.event.action == 'closed'
     uses: scylladb/github-automation/.github/workflows/main_jira_sync_pr_closed.yml@main
     secrets:
       caller_jira_auth: ${{ secrets.USER_AND_KEY_FOR_JIRA_AUTOMATION }}
